@@ -8,6 +8,7 @@ final class StorageLocation {
     var symbol: String = "cabinet"
     var sortOrder: Int = 0
     var createdAt: Date = Date()
+    var household: Household?
 
     @Relationship(deleteRule: .nullify, inverse: \StockLot.location)
     var lots: [StockLot]? = []
@@ -32,6 +33,7 @@ final class StorageLocation {
     static let symbolChoices = [
         "cabinet", "tray.2", "refrigerator", "snowflake", "door.garage.closed",
         "basket", "archivebox", "shippingbox", "house", "carrot",
-        "cup.and.saucer", "takeoutbag.and.cup.and.straw",
+        "cup.and.saucer", "takeoutbag.and.cup.and.straw", "leaf", "stairs",
+        "snowflake.circle", "washer",
     ]
 }

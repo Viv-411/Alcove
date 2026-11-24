@@ -12,10 +12,7 @@ struct InventoryServiceTests {
     let garage: StorageLocation
 
     init() throws {
-        container = try ModelContainer(
-            for: Product.self, StorageLocation.self, StockLot.self, InventoryEvent.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
+        container = try AlcoveSchema.container(inMemory: true)
         context = container.mainContext
         service = InventoryService(context: context)
         pantry = StorageLocation(name: "Pantry", sortOrder: 0)

@@ -10,6 +10,18 @@ iOS app: SwiftUI + SwiftData, iOS 18+, no third-party dependencies.
 2. Select the **Alcove** target → *Signing & Capabilities* → pick your Team. Change the bundle ID (`app.alcove.Alcove`) if Xcode says it's taken.
 3. Plug in your iPhone and press Run.
 
+### Google sign-in
+
+The first launch shows an intro tour, then a sign-in screen, then home setup. To make **Sign in with Google** work:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create a project (or pick one).
+2. **Google Auth Platform → Branding**: fill in the app name (Alcove) and support email.
+3. **Audience**: leave it in *Testing* and add your Google account as a test user.
+4. **Clients → Create client → iOS**, with bundle ID `app.alcove.Alcove`.
+5. Open `Config/Google.xcconfig` and paste in the **Client ID** and the **iOS URL scheme** Google shows you.
+
+Until then, debug builds show a **Continue without an account** button so you can keep using the app. It isn't included in release builds.
+
 Barcode and receipt scanning need a real iPhone camera. In the Simulator, use **Scan → ⋯ → Enter barcode**, and use **Choose a photo** for receipts.
 
 ## Testing
@@ -23,6 +35,7 @@ xcodebuild test -project Alcove.xcodeproj -scheme Alcove \
 - **AlcoveUITests**: walks every screen like a person would (scanning by typed barcode, adding a new product through Open Food Facts, importing a receipt). Set `TEST_RUNNER_SCREENSHOT_DIR=/some/folder` to save a screenshot of each step.
 
 Debug-only launch arguments (compiled out of release builds):
+- `-freshInstall` (with `-uiTesting`): start from the intro tour, as a brand-new install
 - `-uiTesting`: fresh in-memory database, no notification prompt
 - `-sampleData`: fills the house with realistic groceries and usage history
 - `-receiptFixture <path>`: loads that image straight into the receipt importer
@@ -50,6 +63,6 @@ All stock changes go through `InventoryService`. The schema follows CloudKit's r
 
 ## Not built yet
 
-- **Shared household**: needs sync. The plan is CloudKit sharing (free, no server), and it needs a paid Apple Developer account.
+- **Shared household**: homes, spaces and members exist locally now (owner = the signed-in Google account). Inviting family needs sync: a small backend (for example Firebase or Supabase) that accepts the same Google sign-in, so it can later work on Android too.
 - **Meal ideas**: an LLM call over what's in stock and expiring soon.
 - **External Bluetooth/USB barcode scanners**: these act as keyboards, so the plan is a hidden text field on the Scan screen that captures their input.

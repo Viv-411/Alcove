@@ -111,7 +111,7 @@ struct InventoryView: View {
             ContentUnavailableView(
                 "Nothing in \(location.name)",
                 systemImage: location.symbol,
-                description: Text("Scan items in with this spot selected to see them here.")
+                description: Text("Scan items in with this space selected to see them here.")
             )
         } else {
             ContentUnavailableView(

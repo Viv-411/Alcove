@@ -15,6 +15,25 @@ enum DebugLaunch {
         guard let index = arguments.firstIndex(of: "-receiptFixture"), index + 1 < arguments.count else { return nil }
         return arguments[index + 1]
     }
+    /// Start like a brand-new install: intro tour, sign-in, home setup.
+    static var isFreshInstall: Bool { arguments.contains("-freshInstall") }
+
+    /// UI tests skip straight into a set-up home unless they ask for a fresh install.
+    static func prepare(_ context: ModelContext) {
+        guard isUITesting else { return }
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: "auth.guestProfile")
+        if isFreshInstall {
+            defaults.set(false, forKey: "intro.seen")
+            return
+        }
+        defaults.set(true, forKey: "intro.seen")
+        let owner = UserProfile(id: "guest-ui-test", name: "Priya Sharma", email: "priya@example.com", isGuest: true)
+        if let data = try? JSONEncoder().encode(owner) { defaults.set(data, forKey: "auth.guestProfile") }
+        let spaces = SpaceSuggestion.defaults.map { SpaceDraft(name: $0, symbol: SpaceSuggestion.symbol(for: $0)) }
+        HouseholdService(context: context).setUp(name: "Sharma Home", spaces: spaces, owner: owner)
+        if wantsSampleData { SampleData.populate(context) }
+    }
 }
 
 /// A believable household: bulk staples, snacks, freezer food, some usage history.

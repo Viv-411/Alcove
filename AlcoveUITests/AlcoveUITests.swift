@@ -95,7 +95,7 @@ final class AlcoveUITests: XCTestCase {
         snap("12-receipt")
         app.buttons["Cancel"].tap()
 
-        tab("Do I have this?")
+        tab("Search")
         snap("13-search")
         let search = app.searchFields.firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 3))
@@ -112,9 +112,93 @@ final class AlcoveUITests: XCTestCase {
         app.buttons["Settings"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
         snap("16-settings")
-        app.buttons["Storage spots"].tap()
-        XCTAssertTrue(app.navigationBars["Storage spots"].waitForExistence(timeout: 3))
-        snap("17-locations")
+        app.buttons["settings.home"].tap()
+        XCTAssertTrue(app.navigationBars["Sharma Home"].waitForExistence(timeout: 3))
+        snap("17-home-detail")
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Manage spaces'")).firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Spaces"].waitForExistence(timeout: 3))
+        snap("18-spaces")
+    }
+
+    func testFirstLaunch() {
+        app.launchArguments = ["-uiTesting", "-freshInstall"]
+        app.launch()
+
+        // Intro tour
+        let next = app.buttons["tour.next"]
+        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        for page in 1...7 {
+            sleep(1) // let the chips animate in
+            snap(String(format: "40-tour-%02d", page))
+            next.tap()
+        }
+
+        // Sign in
+        let guest = app.buttons["signin.guest"]
+        XCTAssertTrue(guest.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["signin.google"].exists || app.otherElements["signin.google"].exists)
+        snap("50-sign-in")
+        guest.tap()
+
+        // Home setup
+        let name = app.textFields["setup.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        snap("51-setup-name")
+        app.buttons["setup.continue"].tap()
+        XCTAssertTrue(app.staticTexts["Where do you keep food?"].waitForExistence(timeout: 3))
+        app.buttons["Garage"].tap()          // deselect
+        app.buttons["Spice rack"].tap()      // select
+        let custom = app.textFields.firstMatch
+        custom.tap()
+        custom.typeText("Chest freezer\n")
+        snap("52-setup-spaces")
+        app.buttons["setup.continue"].tap()
+        XCTAssertTrue(app.staticTexts["Who lives here?"].waitForExistence(timeout: 3))
+        snap("53-setup-people")
+        app.buttons["setup.continue"].tap()
+
+        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 5))
+        snap("54-new-home")
+        tab("Inventory")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Chest freezer'")).firstMatch.exists)
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Garage'")).firstMatch.exists)
+        snap("55-new-inventory")
+    }
+
+    /// Run against a simulator that has the previous version's data installed
+    /// (set TEST_RUNNER_UPGRADE_CHECK=1). Checks nothing is lost on upgrade.
+    func testUpgradeKeepsExistingData() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["UPGRADE_CHECK"] == "1")
+        app.launchArguments = []
+        app.launch()
+
+        let skip = app.buttons["tour.skip"]
+        if skip.waitForExistence(timeout: 5) { skip.tap() }
+        let guest = app.buttons["signin.guest"]
+        if guest.waitForExistence(timeout: 5) { guest.tap() }
+
+        XCTAssertTrue(app.textFields["setup.name"].waitForExistence(timeout: 5))
+        app.buttons["setup.continue"].tap()
+        // The old spaces are preselected.
+        XCTAssertTrue(app.buttons["Garage"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Garage"].isSelected)
+        snap("60-upgrade-spaces")
+        app.buttons["setup.continue"].tap()
+        app.buttons["setup.continue"].tap()
+
+        // A real launch asks for notification permission; answer it.
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let allow = springboard.buttons["Allow"]
+        if allow.waitForExistence(timeout: 5) { allow.tap() }
+
+        tab("Inventory")
+        _ = app.staticTexts["Aloo Bhujia"].waitForExistence(timeout: 5)
+        snap("61-upgrade-inventory")
+        XCTAssertTrue(app.staticTexts["Aloo Bhujia"].exists)
+        XCTAssertTrue(app.staticTexts["Frozen Parathas"].exists)
+        snap("61-upgrade-inventory")
+        tab("Home")
+        XCTAssertTrue(app.staticTexts["28"].waitForExistence(timeout: 3), "Item count changed during upgrade")
     }
 
     func testEmptyHome() {
@@ -124,7 +208,7 @@ final class AlcoveUITests: XCTestCase {
         snap("21-empty-inventory")
         tab("Scan")
         snap("22-empty-scan")
-        tab("Do I have this?")
+        tab("Search")
         snap("23-empty-search")
     }
 

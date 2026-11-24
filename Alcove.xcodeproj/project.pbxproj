@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AC0000000000000000000041 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = AC0000000000000000000043 /* GoogleSignIn */; };
+		AC0000000000000000000042 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = AC0000000000000000000044 /* GoogleSignInSwift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		AC000000000000000000002D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +32,7 @@
 		AC0000000000000000000001 /* Alcove.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Alcove.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AC0000000000000000000021 /* AlcoveTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlcoveTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AC0000000000000000000022 /* AlcoveUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlcoveUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AC0000000000000000000047 /* Google.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Google.xcconfig; path = Config/Google.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -52,6 +58,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC0000000000000000000041 /* GoogleSignIn in Frameworks */,
+				AC0000000000000000000042 /* GoogleSignInSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,6 +86,7 @@
 				AC0000000000000000000002 /* Alcove */,
 				AC0000000000000000000023 /* AlcoveTests */,
 				AC0000000000000000000024 /* AlcoveUITests */,
+				AC0000000000000000000047 /* Google.xcconfig */,
 				AC0000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -112,6 +121,8 @@
 			);
 			name = Alcove;
 			packageProductDependencies = (
+				AC0000000000000000000043 /* GoogleSignIn */,
+				AC0000000000000000000044 /* GoogleSignInSwift */,
 			);
 			productName = Alcove;
 			productReference = AC0000000000000000000001 /* Alcove.app */;
@@ -195,6 +206,9 @@
 			);
 			mainGroup = AC0000000000000000000004;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AC0000000000000000000045 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AC0000000000000000000005 /* Products */;
 			projectDirPath = "";
@@ -322,8 +336,10 @@
 		};
 		AC0000000000000000000014 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC0000000000000000000047 /* Google.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				INFOPLIST_FILE = Config/Info.plist;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -356,8 +372,10 @@
 		};
 		AC0000000000000000000015 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC0000000000000000000047 /* Google.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				INFOPLIST_FILE = Config/Info.plist;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -508,6 +526,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AC0000000000000000000045 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AC0000000000000000000043 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AC0000000000000000000045 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		AC0000000000000000000044 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AC0000000000000000000045 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AC0000000000000000000009 /* Project object */;
 }

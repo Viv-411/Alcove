@@ -54,21 +54,3 @@ extension UIImage {
         }.cgImage
     }
 }
-
-enum SeedData {
-    static func ensureDefaultLocations(in context: ModelContext) {
-        let count = (try? context.fetchCount(FetchDescriptor<StorageLocation>())) ?? 0
-        guard count == 0 else { return }
-        let defaults = [
-            ("Pantry", "cabinet"),
-            ("Kitchen cabinets", "tray.2"),
-            ("Fridge", "refrigerator"),
-            ("Freezer", "snowflake"),
-            ("Garage", "door.garage.closed"),
-        ]
-        for (index, spot) in defaults.enumerated() {
-            context.insert(StorageLocation(name: spot.0, symbol: spot.1, sortOrder: index))
-        }
-        try? context.save()
-    }
-}

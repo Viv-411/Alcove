@@ -4,11 +4,18 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(AuthService.self) private var auth
+    @Query(sort: \Household.createdAt) private var households: [Household]
 
     @AppStorage(SettingsKey.lowStockAlerts) private var lowStockAlerts = true
     @AppStorage(SettingsKey.expiryAlerts) private var expiryAlerts = true
     @AppStorage(SettingsKey.restockAlerts) private var restockAlerts = true
     @AppStorage(SettingsKey.expiryLeadDays) private var expiryLeadDays = 3
+
+    @State private var showTour = false
+    @State private var confirmSignOut = false
+
+    private var household: Household? { households.first }
 
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "–"
@@ -17,11 +24,39 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Home") {
-                    NavigationLink {
-                        LocationsView()
-                    } label: {
-                        Label("Storage spots", systemImage: "cabinet")
+                if let profile = auth.profile {
+                    Section {
+                        HStack(spacing: 14) {
+                            Avatar(name: profile.name, imageURL: profile.imageURL, size: 52)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(profile.name).font(.headline)
+                                Text(profile.isGuest ? "Not signed in · this iPhone only" : (profile.email ?? "Google account"))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
+                if let household {
+                    Section("Home") {
+                        NavigationLink {
+                            HomeDetailView(household: household)
+                        } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: "house.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(.white)
+                                    .frame(width: 40, height: 40)
+                                    .background(Color.accentColor.gradient, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(household.name).font(.body.weight(.medium))
+                                    Text(homeSummary(household)).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .accessibilityIdentifier("settings.home")
                     }
                 }
 
@@ -43,11 +78,25 @@ struct SettingsView: View {
                     Text("Restock reminders start once Alcove has seen you use something a few times over several days.")
                 }
 
+                Section {
+                    Button {
+                        showTour = true
+                    } label: {
+                        Label("Take the tour again", systemImage: "sparkles")
+                    }
+                }
+
                 Section("About") {
                     LabeledContent("Version", value: version)
                     Text("Product names and photos come from Open Food Facts (openfoodfacts.org), shared under the Open Database License.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                }
+
+                Section {
+                    Button("Sign out", role: .destructive) { confirmSignOut = true }
+                } footer: {
+                    Text("Your home stays on this iPhone when you sign out.")
                 }
             }
             .navigationTitle("Settings")
@@ -57,11 +106,96 @@ struct SettingsView: View {
             }
             .onChange(of: [lowStockAlerts, expiryAlerts, restockAlerts]) { refresh() }
             .onChange(of: expiryLeadDays) { refresh() }
+            .fullScreenCover(isPresented: $showTour) {
+                IntroTourView(finishTitle: "Done") { showTour = false }
+            }
+            .confirmationDialog("Sign out of Alcove?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+                Button("Sign out", role: .destructive) {
+                    dismiss()
+                    auth.signOut()
+                }
+            }
         }
+    }
+
+    private func homeSummary(_ household: Household) -> String {
+        let spaces = household.locations?.count ?? 0
+        let people = household.members?.count ?? 0
+        return "\(spaces) \(spaces == 1 ? "space" : "spaces") · \(people) \(people == 1 ? "person" : "people")"
     }
 
     private func refresh() {
         NotificationScheduler.shared.refresh(context: context)
+    }
+}
+
+/// Edit the home: its name, spaces and people.
+struct HomeDetailView: View {
+    @Bindable var household: Household
+    @Environment(\.modelContext) private var context
+    @Query(sort: \StorageLocation.sortOrder) private var locations: [StorageLocation]
+
+    var body: some View {
+        Form {
+            Section("Name") {
+                TextField("Home name", text: $household.name)
+                    .textInputAutocapitalization(.words)
+            }
+
+            Section {
+                NavigationLink {
+                    LocationsView()
+                } label: {
+                    LabeledContent("Manage spaces") {
+                        Text("\(locations.count)")
+                    }
+                }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(locations) { location in
+                            Label(location.name, systemImage: location.symbol)
+                                .font(.caption.weight(.medium))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color(.tertiarySystemFill), in: Capsule())
+                        }
+                    }
+                }
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            } header: {
+                Text("Spaces")
+            }
+
+            Section {
+                ForEach(household.sortedMembers) { member in
+                    MemberRow(
+                        name: member.name,
+                        detail: member.email ?? "On this iPhone",
+                        imageURL: member.imageURL.flatMap(URL.init(string:)),
+                        badge: member.role.title
+                    )
+                    .listRowInsets(EdgeInsets())
+                }
+                HStack {
+                    Label("Invite family", systemImage: "person.badge.plus")
+                    Spacer()
+                    Text("Coming soon")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(.tertiarySystemFill), in: Capsule())
+                }
+                .foregroundStyle(.secondary)
+            } header: {
+                Text("People")
+            } footer: {
+                Text("Soon you'll be able to invite family so everyone sees the same inventory.")
+            }
+        }
+        .navigationTitle(household.name.isEmpty ? "Home" : household.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .onDisappear { try? context.save() }
     }
 }
 
@@ -92,10 +226,10 @@ struct LocationsView: View {
                 .onMove(perform: move)
                 .onDelete(perform: delete)
             } footer: {
-                Text("Deleting a spot moves anything in it to the first remaining spot.")
+                Text("Drag to reorder. Deleting a space moves anything in it to the first remaining space.")
             }
         }
-        .navigationTitle("Storage spots")
+        .navigationTitle("Spaces")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { EditButton() }
             ToolbarItem(placement: .topBarTrailing) {
@@ -104,7 +238,7 @@ struct LocationsView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .accessibilityLabel("Add storage spot")
+                .accessibilityLabel("Add space")
             }
         }
         .sheet(item: $editing) { LocationEditorSheet(location: $0, nextSortOrder: locations.count) }
@@ -174,7 +308,7 @@ private struct LocationEditorSheet: View {
                     .padding(.vertical, 6)
                 }
             }
-            .navigationTitle(location == nil ? "New spot" : "Edit spot")
+            .navigationTitle(location == nil ? "New space" : "Edit space")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -193,7 +327,9 @@ private struct LocationEditorSheet: View {
             location.name = trimmed
             location.symbol = symbol
         } else {
-            context.insert(StorageLocation(name: trimmed, symbol: symbol, sortOrder: nextSortOrder))
+            let new = StorageLocation(name: trimmed, symbol: symbol, sortOrder: nextSortOrder)
+            context.insert(new)
+            new.household = HouseholdService(context: context).current()
         }
         try? context.save()
         dismiss()

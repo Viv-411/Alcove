@@ -11,16 +11,12 @@ struct AlcoveApp: App {
         inMemory = DebugLaunch.isUITesting
         #endif
         do {
-            container = try ModelContainer(
-                for: Product.self, StorageLocation.self, StockLot.self, InventoryEvent.self,
-                configurations: ModelConfiguration(isStoredInMemoryOnly: inMemory)
-            )
+            container = try AlcoveSchema.container(inMemory: inMemory)
         } catch {
             fatalError("Could not open the Alcove database: \(error)")
         }
-        SeedData.ensureDefaultLocations(in: container.mainContext)
         #if DEBUG
-        if DebugLaunch.wantsSampleData { SampleData.populate(container.mainContext) }
+        DebugLaunch.prepare(container.mainContext)
         #endif
     }
 
@@ -36,7 +32,56 @@ enum AppTab: Hashable {
     case home, inventory, scan, search
 }
 
+/// Decides what to show: intro tour → sign in → set up your home → the app.
 struct RootView: View {
+    @State private var auth = AuthService()
+    @AppStorage("intro.seen") private var hasSeenIntro = false
+    @Query private var households: [Household]
+
+    var body: some View {
+        Group {
+            if !hasSeenIntro {
+                IntroTourView { withAnimation { hasSeenIntro = true } }
+                    .transition(.opacity)
+            } else {
+                switch auth.state {
+                case .checking:
+                    LaunchView()
+                case .signedOut:
+                    SignInView()
+                        .transition(.opacity)
+                case .signedIn(let profile):
+                    if households.isEmpty {
+                        HomeSetupView(profile: profile)
+                            .transition(.move(edge: .trailing))
+                    } else {
+                        MainTabView()
+                            .transition(.opacity)
+                    }
+                }
+            }
+        }
+        .animation(.snappy, value: auth.state)
+        .animation(.snappy, value: households.isEmpty)
+        .environment(auth)
+        .task { await auth.restore() }
+        .onOpenURL { auth.handle($0) }
+    }
+}
+
+private struct LaunchView: View {
+    var body: some View {
+        Image("Logo")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 96, height: 96)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemBackground))
+    }
+}
+
+struct MainTabView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @State private var selection: AppTab = .home
@@ -55,7 +100,7 @@ struct RootView: View {
             Tab("Scan", systemImage: "barcode.viewfinder", value: AppTab.scan) {
                 ScanView(isSelected: selection == .scan)
             }
-            Tab("Do I have this?", systemImage: "magnifyingglass", value: AppTab.search) {
+            Tab("Search", systemImage: "magnifyingglass", value: AppTab.search) {
                 SearchView()
             }
         }

@@ -38,8 +38,7 @@ struct ReceiptParserTests {
 @MainActor
 struct ProductMatcherTests {
     @Test func matchesAbbreviatedReceiptNames() throws {
-        let container = try ModelContainer(for: Product.self, StorageLocation.self, StockLot.self, InventoryEvent.self,
-                                           configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let container = try AlcoveSchema.container(inMemory: true)
         let atta = Product(name: "Whole Wheat Atta", brand: "Aashirvaad")
         let dal = Product(name: "Toor Dal", brand: "Laxmi")
         container.mainContext.insert(atta)

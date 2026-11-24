@@ -161,7 +161,7 @@ struct LabeledField: View {
 }
 
 struct LocationPicker: View {
-    var title: String = "Storage spot"
+    var title: String = "Space"
     @Binding var selection: StorageLocation?
     let locations: [StorageLocation]
 

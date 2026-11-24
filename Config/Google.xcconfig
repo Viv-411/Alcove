@@ -1,0 +1,12 @@
+// Google Sign-In configuration.
+//
+// 1. In Google Cloud Console → APIs & Services → Credentials, create an
+//    OAuth client ID of type "iOS" with bundle ID app.alcove.Alcove.
+// 2. Paste the client ID below, and the "iOS URL scheme" Google shows you
+//    (the client ID reversed) into GOOGLE_REVERSED_CLIENT_ID.
+//
+// iOS client IDs are not secrets, so it's fine to commit them.
+// Note: "//" starts a comment in xcconfig files, which is why there is no URL here.
+
+GOOGLE_CLIENT_ID =
+GOOGLE_REVERSED_CLIENT_ID = alcove-google-not-configured
