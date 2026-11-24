@@ -6,14 +6,22 @@ struct AlcoveApp: App {
     let container: ModelContainer
 
     init() {
+        var inMemory = false
+        #if DEBUG
+        inMemory = DebugLaunch.isUITesting
+        #endif
         do {
             container = try ModelContainer(
-                for: Product.self, StorageLocation.self, StockLot.self, InventoryEvent.self
+                for: Product.self, StorageLocation.self, StockLot.self, InventoryEvent.self,
+                configurations: ModelConfiguration(isStoredInMemoryOnly: inMemory)
             )
         } catch {
             fatalError("Could not open the Alcove database: \(error)")
         }
         SeedData.ensureDefaultLocations(in: container.mainContext)
+        #if DEBUG
+        if DebugLaunch.wantsSampleData { SampleData.populate(container.mainContext) }
+        #endif
     }
 
     var body: some Scene {
@@ -36,7 +44,10 @@ struct RootView: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab("Home", systemImage: "house", value: AppTab.home) {
-                HomeView(onStartScanning: { selection = .scan })
+                HomeView(
+                    onStartScanning: { selection = .scan },
+                    onShowShoppingList: { selection = .search }
+                )
             }
             Tab("Inventory", systemImage: "square.stack.3d.up", value: AppTab.inventory) {
                 InventoryView()
@@ -44,11 +55,14 @@ struct RootView: View {
             Tab("Scan", systemImage: "barcode.viewfinder", value: AppTab.scan) {
                 ScanView(isSelected: selection == .scan)
             }
-            Tab("Do I have this?", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
+            Tab("Do I have this?", systemImage: "magnifyingglass", value: AppTab.search) {
                 SearchView()
             }
         }
         .task {
+            #if DEBUG
+            if DebugLaunch.isUITesting { return }
+            #endif
             await NotificationScheduler.shared.requestAuthorization()
             NotificationScheduler.shared.refresh(context: context)
         }

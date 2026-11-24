@@ -54,7 +54,15 @@ struct ReceiptImportView: View {
                 guard let item else { return }
                 Task { await loadPhoto(item) }
             }
-            .onAppear { if location == nil { location = defaultLocation ?? locations.first } }
+            .onAppear {
+                if location == nil { location = defaultLocation ?? locations.first }
+                #if DEBUG
+                if stage == .choose, let path = DebugLaunch.receiptFixturePath,
+                   let image = UIImage(contentsOfFile: path)?.uprightCGImage() {
+                    read([image])
+                }
+                #endif
+            }
         }
     }
 
@@ -190,57 +198,65 @@ private struct ReceiptCandidateRow: View {
     let products: [Product]
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             Button {
-                candidate.include.toggle()
+                withAnimation(.snappy) { candidate.include.toggle() }
             } label: {
                 Image(systemName: candidate.include ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(candidate.include ? Color.accentColor : .secondary)
+                    .font(.title2)
+                    .foregroundStyle(candidate.include ? Color.accentColor : Color.secondary)
             }
             .buttonStyle(.borderless)
+            .accessibilityLabel(candidate.include ? "Included" : "Skipped")
 
-            VStack(alignment: .leading, spacing: 6) {
-                TextField("Item name", text: $candidate.name)
-                    .font(.body.weight(.medium))
-                    .disabled(candidate.match != nil)
+            VStack(alignment: .leading, spacing: 3) {
+                if candidate.match == nil {
+                    TextField("Item name", text: $candidate.name)
+                        .font(.body.weight(.medium))
+                } else {
+                    Text(candidate.name)
+                        .font(.body.weight(.medium))
+                        .lineLimit(1)
+                }
 
                 Menu {
                     Button {
                         candidate.match = nil
                         candidate.name = candidate.receiptName
                     } label: {
-                        Label("New item", systemImage: "plus")
+                        Label("Add as a new item", systemImage: "plus")
                     }
-                    Divider()
-                    ForEach(products) { product in
-                        Button(product.name) {
-                            candidate.match = product
-                            candidate.name = product.name
+                    Section("Same as…") {
+                        ForEach(products) { product in
+                            Button(product.name) {
+                                candidate.match = product
+                                candidate.name = product.name
+                            }
                         }
                     }
                 } label: {
-                    Label(
-                        candidate.match == nil ? "New item" : "Matched to your item",
-                        systemImage: candidate.match == nil ? "plus.circle" : "link"
-                    )
+                    HStack(spacing: 4) {
+                        Image(systemName: candidate.match == nil ? "sparkle" : "link")
+                        Text(candidate.match == nil ? "New" : "Yours")
+                            .fontWeight(.semibold)
+                        Text("· \(candidate.receiptName)")
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .imageScale(.small)
+                            .foregroundStyle(.tertiary)
+                    }
                     .font(.caption)
                 }
-
-                if candidate.receiptName != candidate.name {
-                    Text("On receipt: \(candidate.receiptName)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                .tint(candidate.match == nil ? .orange : .accentColor)
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 4)
 
-            Stepper("×\(candidate.quantity)", value: $candidate.quantity, in: 1...99)
-                .font(.subheadline.monospacedDigit())
-                .fixedSize()
+            CountStepper(value: $candidate.quantity)
         }
-        .opacity(candidate.include ? 1 : 0.45)
+        .padding(.vertical, 2)
+        .opacity(candidate.include ? 1 : 0.4)
     }
 }
 

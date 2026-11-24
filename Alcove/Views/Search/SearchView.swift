@@ -16,7 +16,9 @@ struct SearchView: View {
     }
 
     private var shoppingList: [Product] {
-        products.filter(\.isLowStock).sorted { $0.name < $1.name }
+        products.filter(\.isLowStock).sorted {
+            $0.totalQuantity == $1.totalQuantity ? $0.name < $1.name : $0.totalQuantity < $1.totalQuantity
+        }
     }
 
     var body: some View {
@@ -27,11 +29,22 @@ struct SearchView: View {
                         Button {
                             showScanner = true
                         } label: {
-                            Label("Scan a barcode in the store", systemImage: "barcode.viewfinder")
-                                .font(.body.weight(.medium))
+                            HStack(spacing: 14) {
+                                Image(systemName: "barcode.viewfinder")
+                                    .font(.title2)
+                                    .foregroundStyle(.white)
+                                    .frame(width: 48, height: 48)
+                                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Scan it in the store").font(.body.weight(.semibold))
+                                    Text("Point at any barcode to see if it's already at home.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 4)
                         }
-                    } footer: {
-                        Text("Or type above to search everything at home.")
+                        .tint(.primary)
                     }
 
                     if !shoppingList.isEmpty {
@@ -40,9 +53,9 @@ struct SearchView: View {
                                 NavigationLink(value: product) { SearchResultRow(product: product) }
                             }
                         } header: {
-                            Text("Running low")
+                            Text("To buy")
                         } footer: {
-                            Text("Your shopping list, built from what's running low.")
+                            Text("Items that are out or down to your low-stock number.")
                         }
                     }
                 } else if results.isEmpty {
@@ -59,7 +72,7 @@ struct SearchView: View {
                 }
             }
             .navigationTitle("Do I have this?")
-            .searchable(text: $query, prompt: "Atta, rice, chips…")
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Atta, rice, chips…")
             .navigationDestination(for: Product.self) { ProductDetailView(product: $0) }
             .sheet(isPresented: $showScanner) { CheckBarcodeSheet() }
         }

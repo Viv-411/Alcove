@@ -20,14 +20,28 @@ struct ProductThumbnail: View {
             }
         }
         .frame(width: size, height: size)
-        .background(Color.accentColor.opacity(0.12))
+        .background(tint.opacity(0.16))
         .clipShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
+        .accessibilityHidden(true)
     }
 
     private var placeholder: some View {
-        Text(product.name.prefix(1).uppercased())
-            .font(.system(size: size * 0.42, weight: .semibold, design: .rounded))
-            .foregroundStyle(Color.accentColor)
+        Text(initials)
+            .font(.system(size: size * (initials.count > 1 ? 0.36 : 0.42), weight: .semibold, design: .rounded))
+            .foregroundStyle(tint)
+    }
+
+    /// "Toor Dal" → "TD", "Ghee" → "G"
+    private var initials: String {
+        let words = product.name.split(separator: " ").filter { $0.first?.isLetter == true }
+        return words.prefix(2).compactMap(\.first).map { String($0).uppercased() }.joined()
+    }
+
+    /// A stable colour per product so lists are easy to scan.
+    private var tint: Color {
+        let palette: [Color] = [.green, .orange, .teal, .indigo, .pink, .brown, .cyan, .purple, .red, .mint]
+        let hash = product.name.lowercased().unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) & 0xFFFF }
+        return palette[hash % palette.count]
     }
 }
 
@@ -60,6 +74,8 @@ struct ProductRow: View {
     let product: Product
     /// When set, the count shown is for this spot only.
     var location: StorageLocation?
+    /// Replaces the automatic subtitle.
+    var detail: Text?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -82,7 +98,9 @@ struct ProductRow: View {
 
     @ViewBuilder
     private var subtitle: some View {
-        if let expiry = product.nextExpiration, Expiry.daysLeft(expiry) <= 7 {
+        if let detail {
+            detail
+        } else if let expiry = product.nextExpiration, Expiry.daysLeft(expiry) <= 7 {
             Text(Expiry.text(expiry)).foregroundStyle(Expiry.color(expiry))
         } else if location == nil, !product.locationSummary.isEmpty {
             Text(product.locationSummary).foregroundStyle(.secondary)
@@ -90,6 +108,54 @@ struct ProductRow: View {
             Text(subtitle).foregroundStyle(.secondary)
         } else if product.isOutOfStock {
             Text("None at home").foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// Compact − 2 + control that fits inside a list row.
+struct CountStepper: View {
+    @Binding var value: Int
+    var range: ClosedRange<Int> = 1...99
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Button {
+                value = max(range.lowerBound, value - 1)
+            } label: {
+                Image(systemName: "minus").frame(width: 30, height: 30)
+            }
+            .disabled(value <= range.lowerBound)
+            .accessibilityLabel("Fewer")
+
+            Text("\(value)")
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .frame(minWidth: 22)
+
+            Button {
+                value = min(range.upperBound, value + 1)
+            } label: {
+                Image(systemName: "plus").frame(width: 30, height: 30)
+            }
+            .disabled(value >= range.upperBound)
+            .accessibilityLabel("More")
+        }
+        .font(.footnote.weight(.semibold))
+        .buttonStyle(.borderless)
+        .background(Color(.tertiarySystemFill), in: Capsule())
+    }
+}
+
+/// A form row with the label on the left and an editable value on the right.
+struct LabeledField: View {
+    let label: String
+    @Binding var text: String
+    var prompt: String
+
+    var body: some View {
+        LabeledContent(label) {
+            TextField(label, text: $text, prompt: Text(prompt))
+                .multilineTextAlignment(.trailing)
+                .textInputAutocapitalization(.words)
         }
     }
 }

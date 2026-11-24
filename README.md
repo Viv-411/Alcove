@@ -12,6 +12,21 @@ iOS app: SwiftUI + SwiftData, iOS 18+, no third-party dependencies.
 
 Barcode and receipt scanning need a real iPhone camera. In the Simulator, use **Scan → ⋯ → Enter barcode**, and use **Choose a photo** for receipts.
 
+## Testing
+
+```sh
+xcodebuild test -project Alcove.xcodeproj -scheme Alcove \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
+```
+
+- **AlcoveTests**: inventory logic (lot merging, soonest-expiry-first, undo), usage forecasts, receipt parsing and real on-device OCR of `AlcoveTests/Fixtures/receipt.png`.
+- **AlcoveUITests**: walks every screen like a person would (scanning by typed barcode, adding a new product through Open Food Facts, importing a receipt). Set `TEST_RUNNER_SCREENSHOT_DIR=/some/folder` to save a screenshot of each step.
+
+Debug-only launch arguments (compiled out of release builds):
+- `-uiTesting`: fresh in-memory database, no notification prompt
+- `-sampleData`: fills the house with realistic groceries and usage history
+- `-receiptFixture <path>`: loads that image straight into the receipt importer
+
 ## What's in v0.1
 
 | Feature | Where |

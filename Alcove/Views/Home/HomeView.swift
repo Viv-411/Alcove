@@ -3,6 +3,7 @@ import SwiftUI
 
 struct HomeView: View {
     var onStartScanning: () -> Void
+    var onShowShoppingList: () -> Void = {}
 
     @Query(sort: \Product.name) private var products: [Product]
     @State private var showSettings = false
@@ -52,6 +53,14 @@ struct HomeView: View {
             .sorted { $0.forecast.daysLeft < $1.forecast.daysLeft }
     }
 
+    private func lowDetail(_ product: Product) -> Text {
+        if product.isOutOfStock {
+            return Text("Out").foregroundStyle(.red)
+        }
+        let left = product.totalQuantity == 1 ? "Last one" : "\(product.totalQuantity) left"
+        return Text("\(left) · \(product.locationSummary)").foregroundStyle(.secondary)
+    }
+
     private var totalItems: Int {
         products.reduce(0) { $0 + $1.totalQuantity }
     }
@@ -63,18 +72,26 @@ struct HomeView: View {
             Section {
                 HStack(spacing: 10) {
                     StatTile(value: totalItems, label: "Items at home", symbol: "shippingbox.fill", tint: .accentColor)
-                    StatTile(value: runningLow.count, label: "Running low", symbol: "arrow.down.circle.fill", tint: .orange)
-                    StatTile(value: expiringSoon.count, label: "Expiring soon", symbol: "clock.fill", tint: .red)
+                    StatTile(value: runningLow.count, label: "To buy", symbol: "cart.fill", tint: .orange)
+                    StatTile(value: expiringSoon.count, label: "Use soon", symbol: "clock.fill", tint: .red)
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
 
             if !runningLow.isEmpty {
-                Section("Running low") {
-                    ForEach(runningLow) { product in
-                        NavigationLink(value: product) { ProductRow(product: product) }
+                Section {
+                    ForEach(runningLow.prefix(5)) { product in
+                        NavigationLink(value: product) {
+                            ProductRow(product: product, detail: lowDetail(product))
+                        }
                     }
+                    if runningLow.count > 5 {
+                        Button("See all \(runningLow.count)", action: onShowShoppingList)
+                            .font(.subheadline)
+                    }
+                } header: {
+                    Text("To buy")
                 }
             }
 

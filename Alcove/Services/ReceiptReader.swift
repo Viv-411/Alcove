@@ -75,7 +75,46 @@ nonisolated enum ReceiptParser {
     private static let skipPhrases = ["sub total", "you saved", "items sold", "number of items", "card #", "ref #"]
 
     static func parse(lines: [String]) -> [ParsedReceiptLine] {
-        lines.compactMap(parse(line:))
+        var items: [ParsedReceiptLine] = []
+        // Many receipts print "2 @ 3.49" on its own line, just above or below the
+        // item it belongs to. Attach it to the neighbour whose price matches.
+        var pendingMultiple: (quantity: Int, unitPrice: Double)?
+        var lastItemPrice: Double?
+
+        for line in lines {
+            if let multiple = standaloneMultiple(line) {
+                if let last = items.indices.last, let price = lastItemPrice,
+                   abs(price - Double(multiple.quantity) * multiple.unitPrice) < 0.02, items[last].quantity == 1 {
+                    items[last].quantity = multiple.quantity
+                } else {
+                    pendingMultiple = multiple
+                }
+                continue
+            }
+            guard var item = parse(line: line) else { continue }
+            let price = trailingPrice(line)
+            if let pending = pendingMultiple, let price, item.quantity == 1,
+               abs(price - Double(pending.quantity) * pending.unitPrice) < 0.02 {
+                item.quantity = pending.quantity
+            }
+            pendingMultiple = nil
+            lastItemPrice = price
+            items.append(item)
+        }
+        return items
+    }
+
+    private static func standaloneMultiple(_ line: String) -> (quantity: Int, unitPrice: Double)? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard let match = trimmed.wholeMatch(of: #/(\d{1,2})\s*[@xX]\s*[$₹€£]?(\d+[.,]\d{2})(\s*(ea|EA|each))?/#),
+              let quantity = Int(match.1),
+              let unit = Double(match.2.replacingOccurrences(of: ",", with: ".")) else { return nil }
+        return (quantity, unit)
+    }
+
+    private static func trailingPrice(_ line: String) -> Double? {
+        guard let match = line.firstMatch(of: #/(\d{1,6})[.,](\d{2})\s*[A-Za-z*]{0,2}\s*$/#) else { return nil }
+        return Double("\(match.1).\(match.2)")
     }
 
     static func parse(line raw: String) -> ParsedReceiptLine? {

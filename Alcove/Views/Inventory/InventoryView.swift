@@ -37,6 +37,12 @@ struct InventoryView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    locationChips
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+                .listSectionSpacing(.compact)
                 if inStock.isEmpty && outOfStock.isEmpty {
                     emptyState
                         .listRowBackground(Color.clear)
@@ -58,7 +64,6 @@ struct InventoryView: View {
                     }
                 }
             }
-            .safeAreaInset(edge: .top, spacing: 0) { locationChips }
             .navigationTitle("Inventory")
             .searchable(text: $searchText, prompt: "Search items")
             .navigationDestination(for: Product.self) { ProductDetailView(product: $0) }
@@ -92,10 +97,10 @@ struct InventoryView: View {
                     }
                 }
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 2)
         }
-        .background(.bar)
+        .scrollClipDisabled()
     }
 
     @ViewBuilder

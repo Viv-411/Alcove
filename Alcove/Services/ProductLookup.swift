@@ -34,12 +34,23 @@ enum ProductLookup {
             return ProductInfo(
                 name: name,
                 brand: brand?.isEmpty == true ? nil : brand,
-                packageSize: product.quantity?.isEmpty == true ? nil : product.quantity,
+                packageSize: cleanSize(product.quantity),
                 imageURL: product.image_front_small_url
             )
         } catch {
             return nil
         }
+    }
+}
+
+extension ProductLookup {
+    /// "400 g e" / "400 g ℮" → "400 g" (℮ is the EU "estimated quantity" mark).
+    static func cleanSize(_ raw: String?) -> String? {
+        guard var size = raw?.trimmingCharacters(in: .whitespaces), !size.isEmpty else { return nil }
+        for mark in [" ℮", "℮", " e"] where size.hasSuffix(mark) {
+            size = String(size.dropLast(mark.count)).trimmingCharacters(in: .whitespaces)
+        }
+        return size.isEmpty ? nil : size
     }
 }
 

@@ -55,11 +55,9 @@ struct NewProductSheet: View {
 
                 if linkTarget == nil {
                     Section("Item") {
-                        TextField("Name (e.g. Toor Dal)", text: $name)
-                            .textInputAutocapitalization(.words)
-                        TextField("Brand", text: $brand)
-                            .textInputAutocapitalization(.words)
-                        TextField("Size (e.g. 4 lb)", text: $packageSize)
+                        LabeledField(label: "Name", text: $name, prompt: "e.g. Toor Dal")
+                        LabeledField(label: "Brand", text: $brand, prompt: "Optional")
+                        LabeledField(label: "Size", text: $packageSize, prompt: "e.g. 4 lb")
                     }
                     Section {
                         Stepper(value: $threshold, in: 0...50) {
@@ -74,7 +72,7 @@ struct NewProductSheet: View {
                     ExpiryField(hasExpiry: $hasExpiry, date: $expiry)
                 }
             }
-            .navigationTitle(barcode == nil ? "New item" : "New barcode")
+            .navigationTitle("New item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

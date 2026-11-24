@@ -11,6 +11,7 @@ struct ProductDetailView: View {
     @State private var editingLot: StockLot?
     @State private var showAddStock = false
     @State private var confirmDelete = false
+    @State private var showAllHistory = false
 
     private var service: InventoryService { InventoryService(context: context) }
 
@@ -23,8 +24,11 @@ struct ProductDetailView: View {
     }
 
     private var recentEvents: [InventoryEvent] {
-        (product.events ?? []).sorted { $0.date > $1.date }.prefix(15).map { $0 }
+        let all = (product.events ?? []).sorted { $0.date > $1.date }
+        return showAllHistory ? all : Array(all.prefix(5))
     }
+
+    private var historyCount: Int { product.events?.count ?? 0 }
 
     var body: some View {
         List {
@@ -50,7 +54,7 @@ struct ProductDetailView: View {
             }
 
             if let forecast = UsageAnalyzer.forecast(for: product) {
-                Section("Usage") {
+                Section("How fast you use it") {
                     LabeledContent("Pace", value: forecast.paceDescription)
                     if !product.isOutOfStock {
                         LabeledContent(
@@ -62,9 +66,9 @@ struct ProductDetailView: View {
             }
 
             Section {
-                TextField("Name", text: $product.name)
-                TextField("Brand", text: optionalBinding(\.brand))
-                TextField("Size (e.g. 10 kg)", text: optionalBinding(\.packageSize))
+                LabeledField(label: "Name", text: $product.name, prompt: "Required")
+                LabeledField(label: "Brand", text: optionalBinding(\.brand), prompt: "Optional")
+                LabeledField(label: "Size", text: optionalBinding(\.packageSize), prompt: "e.g. 10 kg")
                 Stepper(value: $product.lowStockThreshold, in: 0...50) {
                     LabeledContent(
                         "Low stock alert",
@@ -92,15 +96,19 @@ struct ProductDetailView: View {
                                 .frame(width: 22)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(event.summary)
-                                if let location = event.location {
-                                    Text(location.name).font(.caption).foregroundStyle(.secondary)
-                                }
+                                Text(historyDetail(event)).font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
                             Text(event.date.formatted(.relative(presentation: .named)))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                    }
+                    if historyCount > 5 {
+                        Button(showAllHistory ? "Show less" : "Show all \(historyCount)") {
+                            withAnimation { showAllHistory.toggle() }
+                        }
+                        .font(.subheadline)
                     }
                 }
             }
@@ -109,7 +117,7 @@ struct ProductDetailView: View {
                 Button("Delete item", role: .destructive) { confirmDelete = true }
             }
         }
-        .navigationTitle(product.name)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editingLot) { LotEditorSheet(lot: $0) }
         .sheet(isPresented: $showAddStock) {
@@ -186,6 +194,19 @@ struct ProductDetailView: View {
             get: { product[keyPath: keyPath] ?? "" },
             set: { product[keyPath: keyPath] = $0.isEmpty ? nil : $0 }
         )
+    }
+
+    private func historyDetail(_ event: InventoryEvent) -> String {
+        let how = switch (event.kind, event.source) {
+        case (.added, .scan): "Scanned in"
+        case (.added, .receipt): "From a receipt"
+        case (.added, .manual): "Added by hand"
+        case (.used, .scan): "Scanned out"
+        case (.used, _): "Marked as used"
+        case (.adjusted, _): "Count corrected"
+        }
+        if let location = event.location { return "\(how) · \(location.name)" }
+        return how
     }
 
     private func icon(for event: InventoryEvent) -> String {

@@ -6,7 +6,7 @@ enum ScanMode: String, CaseIterable, Identifiable {
 
     var id: Self { self }
     var title: String { self == .stockIn ? "Scan in" : "Scan out" }
-    var tint: Color { self == .stockIn ? .green : .orange }
+    var tint: Color { self == .stockIn ? .accentColor : .orange }
     var symbol: String { self == .stockIn ? "arrow.down.to.line" : "arrow.up.right" }
 }
 
@@ -72,7 +72,7 @@ struct ScanView: View {
             .alert("Enter barcode", isPresented: $showManualEntry) {
                 TextField("Barcode number", text: $manualCode)
                     .keyboardType(.numberPad)
-                Button(mode.title) {
+                Button(mode == .stockIn ? "Add" : "Remove") {
                     let code = manualCode
                     manualCode = ""
                     handle(code)
@@ -92,12 +92,7 @@ struct ScanView: View {
 
     private var controls: some View {
         VStack(spacing: 10) {
-            Picker("Mode", selection: $mode.animation()) {
-                ForEach(ScanMode.allCases) { mode in
-                    Label(mode.title, systemImage: mode.symbol).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
+            ModeSwitch(mode: $mode)
 
             HStack {
                 if mode == .stockIn {
@@ -116,7 +111,7 @@ struct ScanView: View {
                             .font(.subheadline.weight(.semibold))
                     }
                 } else {
-                    Text("Takes from whichever is expiring soonest")
+                        Text("Uses up whichever expires soonest")
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
@@ -145,13 +140,6 @@ struct ScanView: View {
             }
 
             VStack {
-                Label(mode.title, systemImage: mode.symbol)
-                    .font(.caption.weight(.bold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .foregroundStyle(.white)
-                    .background(mode.tint, in: Capsule())
-                    .padding(.top, 10)
                 Spacer()
                 if let toast {
                     ToastView(toast: toast)
@@ -163,7 +151,8 @@ struct ScanView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(mode.tint, lineWidth: 3)
+                .strokeBorder(mode.tint.opacity(0.9), lineWidth: 3)
+                .animation(.snappy, value: mode)
         }
         .padding(.horizontal)
         .frame(maxHeight: .infinity)
@@ -215,7 +204,8 @@ struct ScanView: View {
             Button {
                 showReceipt = true
             } label: {
-                Label("Receipt", systemImage: "doc.text.viewfinder")
+                Label("Receipt", systemImage: "receipt")
+                    .labelStyle(.titleAndIcon)
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -231,6 +221,7 @@ struct ScanView: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
+            .accessibilityLabel("Scan options")
         }
     }
 
@@ -308,6 +299,41 @@ struct ScanView: View {
     }
 }
 
+/// Big two-way switch. The selected side fills with its colour so the mode
+/// is obvious at a glance while you're juggling groceries.
+private struct ModeSwitch: View {
+    @Binding var mode: ScanMode
+    @Namespace private var namespace
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(ScanMode.allCases) { option in
+                Button {
+                    withAnimation(.snappy) { mode = option }
+                } label: {
+                    Label(option.title, systemImage: option.symbol)
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .foregroundStyle(mode == option ? Color.white : Color.primary)
+                        .background {
+                            if mode == option {
+                                Capsule().fill(option.tint.gradient)
+                                    .matchedGeometryEffect(id: "selection", in: namespace)
+                            }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(mode == option ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(Color(.tertiarySystemFill), in: Capsule())
+        .sensoryFeedback(.selection, trigger: mode)
+    }
+}
+
 private struct ScanEntryRow: View {
     let event: InventoryEvent
     var onAdjust: (Int) -> Void
@@ -325,7 +351,7 @@ private struct ScanEntryRow: View {
                     .buttonStyle(.borderless)
                 Text("\(event.kind == .added ? "+" : "−")\(event.quantity)")
                     .font(.subheadline.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(event.kind == .added ? .green : .orange)
+                    .foregroundStyle(event.kind == .added ? Color.accentColor : .orange)
                     .frame(minWidth: 28)
                 Button { onAdjust(1) } label: { Image(systemName: "plus.circle") }
                     .buttonStyle(.borderless)
@@ -343,6 +369,6 @@ private struct ScanEntryRow: View {
             }
             return "\(place) · \(total) at home"
         }
-        return "From \(place) · \(total) left"
+        return total == 0 ? "None left" : "\(total) left · \(place)"
     }
 }
