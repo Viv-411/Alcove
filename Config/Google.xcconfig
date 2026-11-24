@@ -8,5 +8,5 @@
 // iOS client IDs are not secrets, so it's fine to commit them.
 // Note: "//" starts a comment in xcconfig files, which is why there is no URL here.
 
-GOOGLE_CLIENT_ID =
-GOOGLE_REVERSED_CLIENT_ID = alcove-google-not-configured
+GOOGLE_CLIENT_ID = 916745372806-3a4h4u65hlpe1j9curafg3l7am9brcpt.apps.googleusercontent.com
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.916745372806-3a4h4u65hlpe1j9curafg3l7am9brcpt

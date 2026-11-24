@@ -201,6 +201,31 @@ final class AlcoveUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["28"].waitForExistence(timeout: 3), "Item count changed during upgrade")
     }
 
+    /// Opens Google's sign-in page and stops there (set TEST_RUNNER_GOOGLE_CHECK=1).
+    /// Confirms the client ID and consent screen are set up correctly.
+    func testGoogleSignInPageOpens() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["GOOGLE_CHECK"] == "1")
+        app.launchArguments = ["-uiTesting", "-freshInstall"]
+        app.launch()
+        app.buttons["tour.skip"].tap()
+
+        let google = app.buttons["signin.google"]
+        XCTAssertTrue(google.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'needs a client ID'")).firstMatch.exists,
+                       "Client ID isn't reaching the app")
+        snap("70-google-button")
+        google.tap()
+
+        // iOS asks before opening an authentication session.
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let proceed = springboard.buttons["Continue"]
+        if proceed.waitForExistence(timeout: 5) { proceed.tap() }
+        sleep(6)
+        snap("71-google-page")
+        sleep(4)
+        snap("72-google-page-later")
+    }
+
     func testEmptyHome() {
         launch(sample: false)
         snap("20-empty-home")
