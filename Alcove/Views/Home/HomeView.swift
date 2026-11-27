@@ -7,6 +7,8 @@ struct HomeView: View {
 
     @Query(sort: \Product.name) private var products: [Product]
     @State private var showSettings = false
+    @State private var showCook = false
+    @State private var aiStatus = KitchenAI.status
 
     var body: some View {
         NavigationStack {
@@ -29,6 +31,10 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .sheet(isPresented: $showCook) {
+                if #available(iOS 26.0, *) { CookView() }
+            }
+            .onAppear { aiStatus = KitchenAI.status }
             .navigationDestination(for: Product.self) { ProductDetailView(product: $0) }
         }
     }
@@ -61,6 +67,17 @@ struct HomeView: View {
         return Text("\(left) · \(product.locationSummary)").foregroundStyle(.secondary)
     }
 
+    /// Distinct foods that expire within 3 days, soonest first.
+    private var expiringNames: [String] {
+        var names: [String] = []
+        for lot in expiringSoon {
+            guard let expiry = lot.expirationDate, (0...3).contains(Expiry.daysLeft(expiry)),
+                  let name = lot.product?.name, !names.contains(name) else { continue }
+            names.append(name)
+        }
+        return names
+    }
+
     private var totalItems: Int {
         products.reduce(0) { $0 + $1.totalQuantity }
     }
@@ -77,6 +94,14 @@ struct HomeView: View {
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
+            }
+
+            if aiStatus != .notSupported {
+                Section {
+                    CookCard(status: aiStatus, useFirst: expiringNames) {
+                        if aiStatus == .ready { showCook = true }
+                    }
+                }
             }
 
             if !runningLow.isEmpty {
@@ -158,6 +183,63 @@ struct HomeView: View {
         } actions: {
             Button("Start scanning", action: onStartScanning)
                 .buttonStyle(.borderedProminent)
+        }
+    }
+}
+
+/// Entry point for meal ideas from Apple Intelligence.
+private struct CookCard: View {
+    let status: KitchenAI.Status
+    let useFirst: [String]
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: "frying.pan.fill")
+                    .font(.title2)
+                    .foregroundStyle(.white)
+                    .frame(width: 48, height: 48)
+                    .background(
+                        LinearGradient(colors: [.orange, .pink], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("What can I cook?").font(.body.weight(.semibold))
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 4)
+                if status == .ready {
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .tint(.primary)
+        .disabled(status != .ready)
+        .accessibilityIdentifier("home.cook")
+    }
+
+    private var subtitle: String {
+        switch status {
+        case .ready:
+            switch useFirst.count {
+            case 0: return "Meal ideas from what's already at home."
+            case 1: return "Ideas that use up your \(useFirst[0]) first."
+            default: return "Ideas that use up your \(useFirst[0]) and \(useFirst[1]) first."
+            }
+        case .turnedOff:
+            return "Turn on Apple Intelligence in Settings to get meal ideas."
+        case .preparing:
+            return "Apple Intelligence is still downloading. Check back soon."
+        case .notSupported:
+            return ""
         }
     }
 }

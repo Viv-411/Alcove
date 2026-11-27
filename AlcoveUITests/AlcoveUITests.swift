@@ -12,8 +12,8 @@ final class AlcoveUITests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func launch(sample: Bool, extra: [String] = []) {
-        app.launchArguments = ["-uiTesting"] + (sample ? ["-sampleData"] : []) + extra
+    private func launch(sample: Bool, ai: Bool = false, extra: [String] = []) {
+        app.launchArguments = ["-uiTesting"] + (sample ? ["-sampleData"] : []) + (ai ? [] : ["-noAI"]) + extra
         app.launch()
     }
 
@@ -226,6 +226,52 @@ final class AlcoveUITests: XCTestCase {
         snap("72-google-page-later")
     }
 
+    /// Needs Apple Intelligence, which the Simulator can't run; skipped there.
+    func testCookIdeas() throws {
+        launch(sample: true, ai: true)
+        let card = app.buttons["home.cook"]
+        try XCTSkipUnless(card.waitForExistence(timeout: 5) && card.isEnabled,
+                          "Apple Intelligence can't run here; try this on an iPhone 15 Pro or newer")
+        snap("80-home-cook-card")
+        card.tap()
+        sleep(2)
+        snap("81-cook-thinking")
+        let more = app.buttons["cook.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 90), "No meal ideas came back")
+        snap("82-cook-ideas")
+        app.swipeUp()
+        snap("83-cook-ideas-bottom")
+        app.swipeDown()
+        app.buttons.matching(NSPredicate(format: "label CONTAINS 'min'")).firstMatch.tap()
+        sleep(1)
+        snap("84-recipe")
+        app.swipeUp()
+        snap("85-recipe-steps")
+    }
+
+    /// The cooking screens with canned recipes (the Simulator can't run the model).
+    func testCookScreens() {
+        launch(sample: true, ai: true, extra: ["-aiFixture"])
+        let card = app.buttons["home.cook"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        snap("86-home-cook-card")
+        card.tap()
+        sleep(1)
+        snap("87-cook-thinking")
+        XCTAssertTrue(app.buttons["cook.more"].waitForExistence(timeout: 10))
+        snap("88-cook-ideas")
+        app.swipeUp()
+        snap("89-cook-ideas-bottom")
+        app.swipeDown()
+        app.staticTexts["Matar Paneer"].tap()
+        XCTAssertTrue(app.navigationBars["Matar Paneer"].waitForExistence(timeout: 3))
+        snap("90-recipe")
+        app.navigationBars.buttons.firstMatch.tap()
+        app.buttons["Done"].tap()
+        tab("Search")
+        snap("91-shopping-plan")
+    }
+
     func testEmptyHome() {
         launch(sample: false)
         snap("20-empty-home")
@@ -239,11 +285,17 @@ final class AlcoveUITests: XCTestCase {
 
     func testReceiptImport() throws {
         let fixture = try XCTUnwrap(ProcessInfo.processInfo.environment["RECEIPT_FIXTURE"])
-        launch(sample: true, extra: ["-receiptFixture", fixture])
+        launch(sample: true, ai: true, extra: ["-receiptFixture", fixture])
         tab("Scan")
         app.buttons["Receipt"].tap()
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'items found'")).firstMatch
             .waitForExistence(timeout: 15))
+        // Wait for Apple Intelligence to finish tidying names, if it's running.
+        let tidying = app.staticTexts["Tidying names"]
+        if tidying.waitForExistence(timeout: 2) {
+            let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: tidying)
+            wait(for: [gone], timeout: 60)
+        }
         snap("30-receipt-review")
         app.swipeUp()
         snap("31-receipt-review-bottom")

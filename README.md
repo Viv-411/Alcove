@@ -39,6 +39,8 @@ Debug-only launch arguments (compiled out of release builds):
 - `-uiTesting`: fresh in-memory database, no notification prompt
 - `-sampleData`: fills the house with realistic groceries and usage history
 - `-receiptFixture <path>`: loads that image straight into the receipt importer
+- `-noAI`: hide the Apple Intelligence features
+- `-aiFixture`: pretend Apple Intelligence is on and show canned recipes (the Simulator can't run the model)
 
 ## What's in v0.1
 
@@ -52,6 +54,18 @@ Debug-only launch arguments (compiled out of release builds):
 | Running-low alerts (per-item threshold) | `NotificationScheduler` |
 | Expiry tracking + reminders (optional "ask for expiry" while scanning) | Product screen, Scan menu |
 | Smart restock reminders from your actual usage rate | `UsageAnalyzer` |
+| Shopping plan: "Buy now" / "Buy this week", with amounts to last about 2 weeks | Search tab, `ShoppingPlanner` |
+| What can I cook? Meal ideas from what's at home, expiring food first (Apple Intelligence) | Home → card, `RecipeIdeas` |
+| Receipt names tidied by Apple Intelligence ("Grn Bns 2lb" → "Green Beans 2lb") | Receipt review, `ReceiptAI` |
+
+## Apple Intelligence
+
+The AI features use Apple's on-device model (the Foundation Models framework): free, private, offline, no API key or server. They need iOS 26+ on an Apple Intelligence iPhone (15 Pro or newer) with Apple Intelligence turned on; on other phones the features simply don't appear. **The Simulator can't run the model**, so test them on a real phone.
+
+The model is small, so the app never trusts it blindly:
+- **Recipes**: the model lists ingredients; the app decides what's at home and what to buy (`RecipeCheck`). Expired food is never sent to the model.
+- **Receipts**: the parser still decides which lines are items. The model only suggests names, and a suggestion is kept only if every abbreviation fits a word in it and it adds no new words ("Pnr" can become "Paneer", never "Butter").
+- **Shopping plan**: plain arithmetic on your scan history. There is no AI here, because without real store-price data an AI would only be guessing about sales.
 
 ## How the data works
 
@@ -64,5 +78,5 @@ All stock changes go through `InventoryService`. The schema follows CloudKit's r
 ## Not built yet
 
 - **Shared household**: homes, spaces and members exist locally now (owner = the signed-in Google account). Inviting family needs sync: a small backend (for example Firebase or Supabase) that accepts the same Google sign-in, so it can later work on Android too.
-- **Meal ideas**: an LLM call over what's in stock and expiring soon.
+- **Sales-aware shopping**: needs a source of local store prices.
 - **External Bluetooth/USB barcode scanners**: these act as keyboards, so the plan is a hidden text field on the Scan screen that captures their input.

@@ -15,11 +15,7 @@ struct SearchView: View {
             .sorted { $0.totalQuantity > $1.totalQuantity }
     }
 
-    private var shoppingList: [Product] {
-        products.filter(\.isLowStock).sorted {
-            $0.totalQuantity == $1.totalQuantity ? $0.name < $1.name : $0.totalQuantity < $1.totalQuantity
-        }
-    }
+    private var plan: [ShoppingSuggestion] { ShoppingPlanner.plan(for: products) }
 
     var body: some View {
         NavigationStack {
@@ -47,15 +43,25 @@ struct SearchView: View {
                         .tint(.primary)
                     }
 
-                    if !shoppingList.isEmpty {
+                    let plan = plan
+                    let now = plan.filter { $0.urgency == .now }
+                    let soon = plan.filter { $0.urgency == .thisWeek }
+                    if !now.isEmpty {
                         Section {
-                            ForEach(shoppingList) { product in
-                                NavigationLink(value: product) { SearchResultRow(product: product) }
-                            }
+                            ForEach(now) { ShoppingRow(suggestion: $0) }
                         } header: {
-                            Text("To buy")
+                            Text("Buy now")
                         } footer: {
-                            Text("Items that are out or down to your low-stock number.")
+                            if soon.isEmpty { planFooter }
+                        }
+                    }
+                    if !soon.isEmpty {
+                        Section {
+                            ForEach(soon) { ShoppingRow(suggestion: $0) }
+                        } header: {
+                            Text("Buy this week")
+                        } footer: {
+                            planFooter
                         }
                     }
                 } else if results.isEmpty {
@@ -75,6 +81,24 @@ struct SearchView: View {
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Atta, rice, chips…")
             .navigationDestination(for: Product.self) { ProductDetailView(product: $0) }
             .sheet(isPresented: $showScanner) { CheckBarcodeSheet() }
+        }
+    }
+
+    private var planFooter: some View {
+        Text("Based on how fast your household uses each item. Amounts are enough for about 2 weeks.")
+    }
+}
+
+private struct ShoppingRow: View {
+    let suggestion: ShoppingSuggestion
+
+    var body: some View {
+        NavigationLink(value: suggestion.product) {
+            ProductRow(
+                product: suggestion.product,
+                detail: Text(suggestion.reason)
+                    .foregroundStyle(suggestion.product.isOutOfStock ? Color.red : Color.secondary)
+            )
         }
     }
 }

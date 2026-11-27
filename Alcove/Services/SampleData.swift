@@ -17,6 +17,30 @@ enum DebugLaunch {
     }
     /// Start like a brand-new install: intro tour, sign-in, home setup.
     static var isFreshInstall: Bool { arguments.contains("-freshInstall") }
+    /// Hide the Apple Intelligence features so screenshots don't depend on the Mac's settings.
+    static var isAIDisabled: Bool { arguments.contains("-noAI") }
+    /// Pretend Apple Intelligence is on and answer with canned recipes, so the
+    /// cooking screens can be checked in the Simulator (which can't run the model).
+    static var usesAIFixture: Bool { arguments.contains("-aiFixture") }
+
+    static let fixtureRecipes: [Recipe] = [
+        Recipe(title: "Matar Paneer", summary: "Uses up the paneer before it turns, with peas from the freezer.",
+               minutes: 30, have: ["Paneer", "Green Peas"], need: ["Onion", "Tomato"],
+               steps: ["Fry the paneer cubes in a little ghee until golden.",
+                       "Cook chopped onion and tomato with spices into a thick sauce.",
+                       "Add the peas and a splash of water; simmer for 5 minutes.",
+                       "Stir in the paneer and serve with rice or parathas."]),
+        Recipe(title: "Dal Tadka", summary: "A comforting weeknight dal from the pantry.",
+               minutes: 25, have: ["Toor Dal", "Ghee"], need: [],
+               steps: ["Rinse the dal and pressure-cook it with turmeric until soft.",
+                       "Heat ghee, crackle cumin and dried chilli.",
+                       "Pour the tadka over the dal and simmer for 2 minutes."]),
+        Recipe(title: "Vegetable Pulao", summary: "One pot of rice and peas, ready in under half an hour.",
+               minutes: 25, have: ["Basmati Rice", "Green Peas"], need: [],
+               steps: ["Rinse the rice and soak it for 10 minutes.",
+                       "Fry whole spices in ghee, then add the peas and rice.",
+                       "Add water, cover and cook on low until fluffy."]),
+    ]
 
     /// UI tests skip straight into a set-up home unless they ask for a fresh install.
     static func prepare(_ context: ModelContext) {

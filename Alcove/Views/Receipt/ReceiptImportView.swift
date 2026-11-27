@@ -20,6 +20,7 @@ struct ReceiptImportView: View {
     @State private var showCamera = false
     @State private var photoItem: PhotosPickerItem?
     @State private var message: String?
+    @State private var isTidying = false
 
     private var includedCount: Int { candidates.filter(\.include).count }
 
@@ -122,9 +123,22 @@ struct ReceiptImportView: View {
                     ReceiptCandidateRow(candidate: $candidate, products: products)
                 }
             } header: {
-                Text("\(candidates.count) items found")
+                HStack {
+                    Text("\(candidates.count) items found")
+                    Spacer()
+                    if isTidying {
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.mini)
+                            Text("Tidying names")
+                        }
+                        .textCase(nil)
+                        .transition(.opacity)
+                    }
+                }
             } footer: {
-                Text("Receipts use short names. Matching an item to one you already track teaches Alcove for next time.")
+                Text(candidates.contains(where: \.tidied)
+                     ? "Names marked with sparkles were tidied up on your iPhone by Apple Intelligence. Tap a name to change it."
+                     : "Receipts use short names. Matching an item to one you already track teaches Alcove for next time.")
             }
         }
     }
@@ -157,6 +171,37 @@ struct ReceiptImportView: View {
                 stage = .choose
             } else {
                 stage = .review
+                await tidyNames()
+            }
+        }
+    }
+
+    /// Expands receipt abbreviations ("GRN BNS") with the on-device model.
+    /// Items already matched, by a learned alias or by name, are left alone.
+    private func tidyNames() async {
+        guard #available(iOS 26.0, *), KitchenAI.isReady else { return }
+        #if DEBUG
+        if DebugLaunch.usesAIFixture { return }
+        #endif
+        let indices = candidates.indices.filter { candidates[$0].match == nil }
+        guard !indices.isEmpty else { return }
+        let originals = indices.map { candidates[$0].name }
+        withAnimation { isTidying = true }
+        defer { withAnimation { isTidying = false } }
+        guard let fixes = try? await ReceiptAI.clean(originals, householdItems: products.map(\.name)) else { return }
+        withAnimation(.snappy) {
+            for (position, fix) in fixes {
+                let index = indices[position]
+                // Respect anything the person changed while the model was working.
+                guard index < candidates.count, candidates[index].match == nil,
+                      candidates[index].name == originals[position] else { continue }
+                if let same = fix.sameAs, let product = products.first(where: { $0.name == same }) {
+                    candidates[index].match = product
+                    candidates[index].name = product.name
+                } else if fix.name != candidates[index].name {
+                    candidates[index].name = fix.name
+                }
+                candidates[index].tidied = true
             }
         }
     }
@@ -191,6 +236,8 @@ struct ReceiptCandidate: Identifiable {
     var quantity: Int
     var include = true
     var match: Product?
+    /// Renamed or matched by Apple Intelligence.
+    var tidied = false
 }
 
 private struct ReceiptCandidateRow: View {
@@ -236,7 +283,7 @@ private struct ReceiptCandidateRow: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: candidate.match == nil ? "sparkle" : "link")
+                        Image(systemName: candidate.tidied ? "sparkles" : candidate.match == nil ? "sparkle" : "link")
                         Text(candidate.match == nil ? "New" : "Yours")
                             .fontWeight(.semibold)
                         Text("· \(candidate.receiptName)")
