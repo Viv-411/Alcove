@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		AC0000000000000000000041 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = AC0000000000000000000043 /* GoogleSignIn */; };
-		AC0000000000000000000042 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = AC0000000000000000000044 /* GoogleSignInSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,7 +58,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				AC0000000000000000000041 /* GoogleSignIn in Frameworks */,
-				AC0000000000000000000042 /* GoogleSignInSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -122,7 +120,6 @@
 			name = Alcove;
 			packageProductDependencies = (
 				AC0000000000000000000043 /* GoogleSignIn */,
-				AC0000000000000000000044 /* GoogleSignInSwift */,
 			);
 			productName = Alcove;
 			productReference = AC0000000000000000000001 /* Alcove.app */;
@@ -543,11 +540,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AC0000000000000000000045 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignIn;
-		};
-		AC0000000000000000000044 /* GoogleSignInSwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = AC0000000000000000000045 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
-			productName = GoogleSignInSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

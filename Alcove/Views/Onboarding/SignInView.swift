@@ -1,9 +1,7 @@
-import GoogleSignInSwift
 import SwiftUI
 
 struct SignInView: View {
     @Environment(AuthService.self) private var auth
-    @Environment(\.colorScheme) private var colorScheme
 
     @State private var isWorking = false
     @State private var errorMessage: String?
@@ -42,26 +40,17 @@ struct SignInView: View {
                         .transition(.opacity)
                 }
 
-                ZStack {
-                    GoogleSignInButton(
-                        scheme: colorScheme == .dark ? .dark : .light,
-                        style: .wide,
-                        state: isWorking ? .disabled : .normal
-                    ) {
-                        Task { await signIn() }
-                    }
-                    .frame(maxWidth: 320)
-                    .accessibilityIdentifier("signin.google")
-
-                    if isWorking { ProgressView() }
+                ContinueWithGoogleButton(isWorking: isWorking) {
+                    Task { await signIn() }
                 }
+                .accessibilityIdentifier("signin.google")
 
                 #if DEBUG
                 Button("Continue without an account") {
                     auth.continueAsGuest()
                 }
-                .font(.subheadline.weight(.medium))
-                .padding(.top, 4)
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
                 .accessibilityIdentifier("signin.guest")
 
                 if !AuthService.isConfigured {
@@ -100,5 +89,67 @@ struct SignInView: View {
         } catch {
             withAnimation { errorMessage = error.localizedDescription }
         }
+    }
+}
+
+/// "Continue with Google", following Google's branding rules: the official
+/// G logo, approved wording, and Google's light and dark colours.
+struct ContinueWithGoogleButton: View {
+    var isWorking = false
+    var action: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Image("GoogleG")
+                        .resizable()
+                        .frame(width: 20, height: 20)
+                        .opacity(isWorking ? 0 : 1)
+                    if isWorking {
+                        ProgressView().controlSize(.small)
+                    }
+                }
+                .frame(width: 20, height: 20)
+                Text("Continue with Google")
+                    .font(.system(size: 17, weight: .semibold))
+            }
+            .foregroundStyle(textColor)
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .background(fill, in: Capsule())
+            .overlay(Capsule().strokeBorder(border, lineWidth: 1))
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0 : 0.06), radius: 10, y: 4)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(PressableStyle())
+        .disabled(isWorking)
+        .accessibilityLabel("Continue with Google")
+    }
+
+    // Google's published button colours.
+    private var fill: Color { colorScheme == .dark ? Color(hex: 0x131314) : .white }
+    private var border: Color { colorScheme == .dark ? Color(hex: 0x8E918F) : Color(hex: 0xDADCE0) }
+    private var textColor: Color { colorScheme == .dark ? Color(hex: 0xE3E3E3) : Color(hex: 0x1F1F1F) }
+}
+
+/// Shrinks slightly while pressed.
+struct PressableStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .animation(.snappy(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+extension Color {
+    init(hex: UInt32) {
+        self.init(
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255
+        )
     }
 }
