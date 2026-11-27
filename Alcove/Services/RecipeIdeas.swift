@@ -60,12 +60,14 @@ final class RecipeGenerator {
     private var shownTitles: [String] = []
     private var task: Task<Void, Never>?
 
-    static let instructions = """
+    /// Lower values gave steadier, more ordinary dishes in testing (see Evaluation/).
+    nonisolated static let temperature = 0.4
+
+    nonisolated static let instructions = """
         You suggest home-cooked meals using food a household already has.
         Suggest well-known dishes that families really cook, like dal tadka, matar paneer, jeera rice, \
         vegetable pulao, omelette or pasta. Never invent strange combinations.
         Build each dish around the inventory's main ingredients, and use food that expires soon first.
-        Snacks and biscuits are not cooking ingredients.
         A spice mix such as "Chana Masala" is only a seasoning; a dish that uses it still needs its main ingredient.
         Prefer dishes that need at most two ingredients the household doesn't have.
         The kitchen already has salt, cooking oil, water and dry spices.
@@ -82,8 +84,7 @@ final class RecipeGenerator {
         phase = .thinking
         partial = []
         recipes = []
-        // Expired food is never suggested, and counts as something to buy.
-        let usable = pantry.filter { ($0.daysToExpiry ?? 0) >= 0 }
+        let usable = RecipeGeneratorPrompt.usable(pantry)
         let prompt = RecipeGeneratorPrompt.make(pantry: usable, preferences: preferences, avoid: shownTitles)
         let pantryNames = usable.map(\.name)
 
@@ -104,7 +105,7 @@ final class RecipeGenerator {
                 let stream = session.streamResponse(
                     to: prompt,
                     generating: RecipeIdeaList.self,
-                    options: GenerationOptions(temperature: 0.4)
+                    options: GenerationOptions(temperature: Self.temperature)
                 )
                 for try await snapshot in stream {
                     if Task.isCancelled { return }
@@ -112,12 +113,7 @@ final class RecipeGenerator {
                 }
                 let result = try await stream.collect().content
                 if Task.isCancelled { return }
-                recipes = result.ideas.map { idea in
-                    let checked = RecipeCheck.reconcile(idea.ingredients, pantry: pantryNames)
-                    return Recipe(title: idea.title, summary: idea.summary, minutes: idea.minutes,
-                                  have: checked.have, need: checked.need, steps: idea.steps)
-                }
-                .filter { !$0.have.isEmpty }
+                recipes = RecipeCheck.recipes(from: result.ideas, pantry: pantryNames, preferences: preferences)
                 shownTitles += recipes.map(\.title)
                 phase = recipes.isEmpty ? .failed("Couldn't come up with anything from what's at home. Try again.") : .done
             } catch is CancellationError {
@@ -135,10 +131,32 @@ final class RecipeGenerator {
 }
 
 enum RecipeGeneratorPrompt {
+    /// Expired food is never suggested (it counts as something to buy), and the
+    /// most urgent food comes first so it survives the prompt's item limit.
+    static func usable(_ pantry: [PantryItem]) -> [PantryItem] {
+        PantryItem.urgentFirst(pantry.filter { ($0.daysToExpiry ?? 0) >= 0 && !isSnack($0.name) })
+    }
+
+    /// Ready-to-eat snacks aren't cooking ingredients, but the small on-device
+    /// model can't tell that "Aloo Bhujia" is a snack and kept cooking with it.
+    /// They're left out of the prompt instead.
+    static let snackWords: Set<String> = [
+        "biscuit", "biscuits", "cookie", "cookies", "oreo", "oreos", "chips", "crisps", "bhujia", "namkeen",
+        "mixture", "chocolate", "chocolates", "candy", "candies", "popcorn", "pretzels", "crackers", "gummies",
+        "cereal", "granola", "wafers", "rusk", "chakli", "sev", "soda", "juice",
+    ]
+
+    static func isSnack(_ name: String) -> Bool {
+        ProductMatcher.tokens(name).contains { snackWords.contains($0) }
+    }
+
     static func make(pantry: [PantryItem], preferences: RecipePreferences, avoid: [String]) -> String {
         // The on-device model has a small context window; the most urgent food is listed first.
         let lines = pantry.prefix(60).map(\.promptLine).joined(separator: "\n")
         var asks = ["Suggest 3 different dishes to cook from this inventory. Give each dish a different main ingredient."]
+        // Named again here: in a long inventory the model otherwise tends to overlook them.
+        let urgent = pantry.filter(\.isExpiringSoon).prefix(4).map(\.name)
+        if !urgent.isEmpty { asks.append("Use these first because they expire soon: \(urgent.joined(separator: ", ")).") }
         if preferences.quick { asks.append("Each dish must take 20 minutes or less.") }
         if preferences.vegetarian { asks.append("All dishes must be vegetarian: no meat, chicken or fish.") }
         let note = preferences.note.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -155,6 +173,33 @@ enum RecipeCheck {
         "salt", "water", "oil", "cooking oil", "vegetable oil", "olive oil", "pepper",
         "black pepper", "sugar", "ice", "spices", "salt and pepper",
     ]
+
+    /// Turns the model's ideas into what the app shows. Ideas that use nothing
+    /// from home are dropped, and so are ideas that break what the household asked
+    /// for (meat when vegetarian, over 20 minutes when quick).
+    @available(iOS 26.0, *)
+    static func recipes(from ideas: [RecipeIdea], pantry: [String], preferences: RecipePreferences = .init()) -> [Recipe] {
+        ideas
+            .filter { !preferences.vegetarian || !containsMeat($0.ingredients + [$0.title]) }
+            .filter { !preferences.quick || $0.minutes <= 20 }
+            .map { idea in
+            let checked = reconcile(idea.ingredients, pantry: pantry)
+            return Recipe(title: idea.title, summary: idea.summary, minutes: idea.minutes,
+                          have: checked.have, need: checked.need, steps: idea.steps)
+        }
+        .filter { !$0.have.isEmpty }
+    }
+
+    static let meatWords: Set<String> = [
+        "chicken", "beef", "pork", "lamb", "mutton", "goat", "fish", "shrimp", "prawn", "bacon", "ham",
+        "turkey", "sausage", "tuna", "salmon", "keema", "pepperoni", "anchovy", "crab", "meat",
+    ]
+
+    static func containsMeat(_ texts: [String]) -> Bool {
+        texts.contains { text in
+            ProductMatcher.tokens(text).contains { meatWords.contains($0) || meatWords.contains(String($0.dropLast())) }
+        }
+    }
 
     /// Splits a dish's ingredients into what's at home (by its inventory name) and what to buy.
     static func reconcile(_ ingredients: [String], pantry: [String]) -> (have: [String], need: [String]) {

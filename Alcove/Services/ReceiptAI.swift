@@ -40,7 +40,14 @@ enum ReceiptAI {
     /// Returns a fix for each line it could tidy, keyed by its position in `names`.
     @available(iOS 26.0, *)
     static func clean(_ names: [String], householdItems: [String]) async throws -> [Int: Fix] {
-        guard !names.isEmpty else { return [:] }
+        let raw = try await suggest(names, householdItems: householdItems)
+        return apply(raw, originals: names, householdItems: householdItems)
+    }
+
+    /// The model's unchecked suggestions. Use `clean`, which filters them.
+    @available(iOS 26.0, *)
+    static func suggest(_ names: [String], householdItems: [String]) async throws -> [(line: Int, name: String, sameAs: String)] {
+        guard !names.isEmpty else { return [] }
         // Quoted and lowercased: bare receipt codes can make the model decide the
         // text isn't English and refuse the whole request.
         let list = names.enumerated()
@@ -63,8 +70,7 @@ enum ReceiptAI {
             generating: ReceiptNameFixes.self,
             options: GenerationOptions(temperature: 0)
         )
-        return apply(response.content.items.map { ($0.line, $0.name, $0.sameAs) },
-                     originals: names, householdItems: householdItems)
+        return response.content.items.map { ($0.line, $0.name, $0.sameAs) }
     }
 
     /// Keeps only fixes that are faithful to the receipt: each fix must point at
@@ -76,14 +82,18 @@ enum ReceiptAI {
             let index = entry.line - 1
             guard originals.indices.contains(index), fixes[index] == nil else { continue }
             let original = originals[index]
-            let name = entry.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            var name = entry.name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard name.filter(\.isLetter).count >= 3, name.count <= 60 else { continue }
+            // The model sometimes shouts; receipts already do enough of that.
+            if name == name.uppercased() { name = ReceiptParser.prettify(name) }
 
             let wanted = entry.sameAs.trimmingCharacters(in: .whitespacesAndNewlines)
             let same = wanted.isEmpty ? nil : householdItems.first {
                 $0.caseInsensitiveCompare(wanted) == .orderedSame && sharesAWord(original, $0)
             }
-            if same == nil, !isFaithful(name, to: original) { continue }
+            if same == nil {
+                guard isFaithful(name, to: original), compact(name) != compact(original) else { continue }
+            }
             fixes[index] = Fix(name: same ?? name, sameAs: same)
         }
         return fixes
@@ -113,8 +123,15 @@ enum ReceiptAI {
         return letterWords(original).contains { code in code.count >= 3 && words.contains { abbreviates(code, $0) } }
     }
 
+    /// Letters and digits only, so "12pk" and "12 PK" compare equal.
+    private static func compact(_ text: String) -> String {
+        text.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+
     /// "pnr" → "paneer": same first letter, and the rest appear in order.
+    /// A lone letter ("Parle G") stands for itself; it could start any word.
     static func abbreviates(_ code: String, _ word: String) -> Bool {
+        if code.count == 1 { return word == code }
         guard let first = code.first, word.first == first, code.count <= word.count else { return false }
         var rest = word.dropFirst()[...]
         for letter in code.dropFirst() {

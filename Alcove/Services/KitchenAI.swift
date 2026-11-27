@@ -50,7 +50,7 @@ struct PantryItem: Sendable, Hashable {
 
     @MainActor
     static func snapshot(of products: [Product]) -> [PantryItem] {
-        products
+        urgentFirst(products
             .filter { !$0.isOutOfStock }
             .map { product in
                 PantryItem(
@@ -59,16 +59,19 @@ struct PantryItem: Sendable, Hashable {
                     daysToExpiry: product.nextExpiration.map(Expiry.daysLeft),
                     location: product.primaryLocation?.name
                 )
+            })
+    }
+
+    /// Food that expires soonest first, then the rest by name.
+    static func urgentFirst(_ items: [PantryItem]) -> [PantryItem] {
+        items.sorted { a, b in
+            switch (a.daysToExpiry, b.daysToExpiry) {
+            case let (x?, y?): x == y ? a.name < b.name : x < y
+            case (_?, nil): true
+            case (nil, _?): false
+            default: a.name < b.name
             }
-            .sorted { a, b in
-                // Expiring food first, so it survives any trimming below.
-                switch (a.daysToExpiry, b.daysToExpiry) {
-                case let (x?, y?): x < y
-                case (_?, nil): true
-                case (nil, _?): false
-                default: a.name < b.name
-                }
-            }
+        }
     }
 
     var isExpiringSoon: Bool { (daysToExpiry ?? .max) <= 3 && (daysToExpiry ?? .max) >= 0 }

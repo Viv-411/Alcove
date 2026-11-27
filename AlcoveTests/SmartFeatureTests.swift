@@ -30,6 +30,12 @@ struct RecipeCheckTests {
         #expect(result.need == ["Ginger"])
     }
 
+    @Test func spotsMeatForVegetarians() {
+        #expect(RecipeCheck.containsMeat(["Chicken breast", "Spinach"]))
+        #expect(RecipeCheck.containsMeat(["Keema Matar"]))
+        #expect(!RecipeCheck.containsMeat(["Paneer", "Green Peas", "Eggs"]))
+    }
+
     @Test func needsMostWordsToMatch() {
         #expect(RecipeCheck.pantryMatch(for: "green chillies", in: ["Green Tea"]) == nil)
         #expect(RecipeCheck.pantryMatch(for: "tomatoes", in: ["Tomato"]) == "Tomato")
@@ -79,6 +85,15 @@ struct ReceiptAITests {
         #expect(!ReceiptAI.isFaithful("Kirkland Extra Virgin Olive Oil 2L", to: "Kirk Olv Oil 2l"))
         #expect(ReceiptAI.isFaithful("Kirkland Olive Oil 2 Liters", to: "Kirk Olv Oil 2l"))
         #expect(ReceiptAI.isFaithful("Roma Tomatoes", to: "Tom Roma"))
+        // Found by the evaluation: a lone letter used to match any word.
+        #expect(!ReceiptAI.isFaithful("Parle Granola 800g", to: "Parle G 800g"))
+    }
+
+    @Test func tidiesShoutingAndSkipsNoOps() {
+        let fixes = ReceiptAI.apply([(1, "MAGGI NOODLES 12 PK", ""), (2, "GREEN BEANS", "")],
+                                    originals: ["Maggi Noodles 12pk", "Grn Bns"], householdItems: [])
+        #expect(fixes[0] == nil)
+        #expect(fixes[1] == .init(name: "Green Beans", sameAs: nil))
     }
 }
 
@@ -142,6 +157,17 @@ struct ShoppingPlannerTests {
 }
 
 struct RecipePromptTests {
+    @Test func leavesOutExpiredFoodAndSnacks() {
+        let items = [
+            PantryItem(name: "Aloo Bhujia", quantity: 1, daysToExpiry: 5, location: nil),
+            PantryItem(name: "Parle-G Biscuits", quantity: 2, daysToExpiry: nil, location: nil),
+            PantryItem(name: "Greek Yogurt", quantity: 1, daysToExpiry: -1, location: nil),
+            PantryItem(name: "Toor Dal", quantity: 1, daysToExpiry: nil, location: nil),
+            PantryItem(name: "Paneer", quantity: 1, daysToExpiry: 2, location: nil),
+        ]
+        #expect(RecipeGeneratorPrompt.usable(items).map(\.name) == ["Paneer", "Toor Dal"])
+    }
+
     @Test func listsExpiringFoodFirstAndIncludesPreferences() {
         let items = [
             PantryItem(name: "Rice", quantity: 2, daysToExpiry: nil, location: "Pantry"),
@@ -153,6 +179,7 @@ struct RecipePromptTests {
         let prompt = RecipeGeneratorPrompt.make(pantry: items, preferences: prefs, avoid: ["Dal tadka"])
         #expect(prompt.contains("- Rice (2, Pantry)"))
         #expect(prompt.contains("- Paneer (1, expires in 1 day, Fridge)"))
+        #expect(prompt.contains("Use these first because they expire soon: Paneer."))
         #expect(prompt.contains("vegetarian"))
         #expect(prompt.contains("something spicy"))
         #expect(prompt.contains("Don't repeat these dishes: Dal tadka."))

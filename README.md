@@ -63,9 +63,11 @@ Debug-only launch arguments (compiled out of release builds):
 The AI features use Apple's on-device model (the Foundation Models framework): free, private, offline, no API key or server. They need iOS 26+ on an Apple Intelligence iPhone (15 Pro or newer) with Apple Intelligence turned on; on other phones the features simply don't appear. **The Simulator can't run the model**, so test them on a real phone.
 
 The model is small, so the app never trusts it blindly:
-- **Recipes**: the model lists ingredients; the app decides what's at home and what to buy (`RecipeCheck`). Expired food is never sent to the model.
+- **Recipes**: the model lists ingredients; the app decides what's at home and what to buy (`RecipeCheck`). Expired food and obvious snacks are never sent to the model, and dishes that break a vegetarian or under-20-minute request are dropped.
 - **Receipts**: the parser still decides which lines are items. The model only suggests names, and a suggestion is kept only if every abbreviation fits a word in it and it adds no new words ("Pnr" can become "Paneer", never "Butter").
 - **Shopping plan**: plain arithmetic on your scan history. There is no AI here, because without real store-price data an AI would only be guessing about sales.
+
+`Evaluation/` runs these features against the on-device model on a Mac and records the results; see [Evaluation/README.md](Evaluation/README.md) and [Evaluation/results.md](Evaluation/results.md).
 
 ## How the data works
 
