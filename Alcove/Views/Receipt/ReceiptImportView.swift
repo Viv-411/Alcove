@@ -1,3 +1,4 @@
+import FoundationModels
 import PhotosUI
 import SwiftData
 import SwiftUI
@@ -21,6 +22,8 @@ struct ReceiptImportView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var message: String?
     @State private var isTidying = false
+    /// A model session loaded while the person photographs the receipt, so tidying starts sooner.
+    @State private var warmSession: AnyObject?
 
     private var includedCount: Int { candidates.filter(\.include).count }
 
@@ -57,6 +60,11 @@ struct ReceiptImportView: View {
             }
             .onAppear {
                 if location == nil { location = defaultLocation ?? locations.first }
+                if #available(iOS 26.0, *), KitchenAI.isReady, warmSession == nil {
+                    let session = LanguageModelSession(instructions: ReceiptAI.instructions)
+                    session.prewarm()
+                    warmSession = session
+                }
                 #if DEBUG
                 if stage == .choose, let path = DebugLaunch.receiptFixturePath,
                    let image = UIImage(contentsOfFile: path)?.uprightCGImage() {
@@ -188,7 +196,9 @@ struct ReceiptImportView: View {
         let originals = indices.map { candidates[$0].name }
         withAnimation { isTidying = true }
         defer { withAnimation { isTidying = false } }
-        guard let fixes = try? await ReceiptAI.clean(originals, householdItems: products.map(\.name)) else { return }
+        let session = warmSession as? LanguageModelSession
+        warmSession = nil
+        guard let fixes = try? await ReceiptAI.clean(originals, householdItems: products.map(\.name), session: session) else { return }
         withAnimation(.snappy) {
             for (position, fix) in fixes {
                 let index = indices[position]

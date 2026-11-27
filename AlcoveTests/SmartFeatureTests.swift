@@ -75,6 +75,12 @@ struct ReceiptAITests {
         #expect(fixes[0] == .init(name: "Organic Bananas", sameAs: nil))
         let paneer = ReceiptAI.apply([(1, "Amul Paneer", "Paneer")], originals: ["Amul Pnr 200g"], householdItems: household)
         #expect(paneer[0] == .init(name: "Paneer", sameAs: "Paneer"))
+        // Found on a real receipt: peanuts aren't peanut butter, assorted biscuits aren't Parle-G.
+        let peanuts = ReceiptAI.apply([(1, "XL Peanuts", "Peanut Butter"), (2, "Assorted Biscuits", "Parle-G Biscuits")],
+                                      originals: ["Ks Xl Peanut", "Asst Biscuit"],
+                                      householdItems: ["Peanut Butter", "Parle-G Biscuits"])
+        #expect(peanuts[0]?.sameAs == nil)
+        #expect(peanuts[1] == .init(name: "Assorted Biscuits", sameAs: nil))
     }
 
     @Test func abbreviations() {
@@ -87,6 +93,10 @@ struct ReceiptAITests {
         #expect(ReceiptAI.isFaithful("Roma Tomatoes", to: "Tom Roma"))
         // Found by the evaluation: a lone letter used to match any word.
         #expect(!ReceiptAI.isFaithful("Parle Granola 800g", to: "Parle G 800g"))
+        // Store-brand initials only when spelled out exactly.
+        #expect(ReceiptAI.isFaithful("Kirkland Signature XL Peanuts", to: "Ks Xl Peanut"))
+        #expect(!ReceiptAI.isFaithful("Kale Salad XL Peanuts", to: "Ks Xl Peanut"))
+        #expect(!ReceiptAI.isFaithful("XL Peanut Butter", to: "Ks Xl Peanut"))
     }
 
     @Test func tidiesShoutingAndSkipsNoOps() {

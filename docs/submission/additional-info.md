@@ -30,16 +30,16 @@ Key design choice: the model suggests, the app checks.
 - Receipts: the app's parser decides which lines are items, so the model can't add items. A suggested name is kept only if every abbreviation on the line fits a word in it and it adds no new words ("Pnr" may become "Paneer", never "Butter"). Otherwise the receipt's own text is kept for the user to fix.
 
 How I checked it: I built an evaluation tool (Evaluation/AIEval in the repo) that runs the app's actual AI code against Apple's model on a Mac, because the iOS Simulator can't run the model. Results are in Evaluation/results.md.
-- Receipts: 30 receipt lines labelled with the correct words. Trusting the model directly, 87% of names were right but 13% were confidently wrong (e.g. "PNT BTR CRMY" became "Plain Butter Cream"). With the app's check, 0% wrong names are shown and 83% are clear and correct; the rest stay as the receipt printed them. A second run gave identical results for all 30 lines.
+- Receipts: 30 receipt lines labelled with the correct words. Trusting the model directly, 90% of names were right but 10% were confidently wrong (e.g. "PNT BTR CRMY", creamy peanut butter, became "Plain Cream Cheese"). With the app's check, 0% wrong names are shown and 87% are clear and correct; the rest stay as the receipt printed them. A second run gave identical results for all 30 lines.
 - Meal ideas: 43 runs across six pantries, including a small one, an 81-item one, a vegetarian request and a quick-meal request. Every run that had expiring food used it, and no dish treated expired food as something you have.
-- Example of a fix: the first design let the model decide what was "at home" and showed it expired food. Over 20 runs it used expired yogurt in 8 of 60 dishes and cooked with snacks (Aloo Bhujia, Parle-G biscuits) in 15 of 60. Telling the model "snacks aren't ingredients" didn't help, because it doesn't know Aloo Bhujia is a snack. Removing snacks and expired food from what the model sees brought both to 0 of 60.
+- Example of a fix: the first design let the model decide what was "at home" and showed it expired food. Over 20 runs it used expired yogurt in 5 of 60 dishes and cooked with snacks (Aloo Bhujia, Parle-G biscuits) in 17 of 60. Telling the model "snacks aren't ingredients" didn't help, because it doesn't know Aloo Bhujia is a snack. Removing snacks and expired food from what the model sees brought both to 0 of 60.
 
 Limits (when the AI can and can't be relied on):
 - It needs iOS 26 or later on an iPhone 15 Pro or newer with Apple Intelligence turned on. On other phones the AI features are hidden and the rest of the app works normally.
 - The measurements were taken on a Mac running Apple's model, not on an iPhone, because the Simulator can't run it. The iPhone uses the same framework, but speed and exact output may differ.
 - Recipe ideas are suggestions from a small model. They are usually sensible everyday dishes, but whether a dish is good is a judgment call and isn't scored automatically. The full dish list is in results.md.
 - The snack filter uses a word list (biscuits, chips, bhujia, cookies and similar), so a snack with an unusual name can still reach the model.
-- Receipt reading is cautious by design: about 1 in 6 abbreviations is left for the user to fix rather than risk a wrong name.
+- Receipt reading is cautious by design: about 1 in 8 abbreviations is left for the user to fix rather than risk a wrong name.
 
 AI USED DURING DEVELOPMENT
 
@@ -53,7 +53,8 @@ How I reviewed its work, with examples:
 - Google sign-in button: the first version used Google's standard button, which I rejected as dated-looking. It was replaced with a modern rounded button that still follows Google's branding rules.
 - Choice of AI: Claude Code first offered Claude through a server or Apple's on-device model. I rejected the paid option, and we went with on-device.
 - No AI for show: I asked that no feature be built just to look like AI. As a result, the shopping plan uses plain arithmetic on usage history, because without real store-price data, AI "sales advice" would only be guessing.
-- AI-built tests checking AI-built code: the evaluation tool found a bug in Claude Code's own receipt check ("Parle G 800g" was being renamed "Parle Granola"). It was fixed and a permanent test was added. All 31 unit tests and the automated screen tests pass on the submitted version.
+- Real-world testing: when I recorded the demo, a real Costco receipt failed. "AMOUNT" and "INSTANT SAVING" were added as items, "ASST BISCUIT" was matched to my Parle-G biscuits, and items were missed because the receipt was photographed at a slight angle. None of this was the AI's renaming; it was the receipt reading and matching around it. I reported it, Claude Code reproduced it from a frame of my screen recording, and the fixes (skipping payment lines, stricter matching, straightening tilted rows) each got a permanent test.
+- AI-built tests checking AI-built code: the evaluation tool found a bug in Claude Code's own receipt check ("Parle G 800g" was being renamed "Parle Granola"). It was fixed and a permanent test was added. All 33 unit tests and the automated screen tests pass on the submitted version.
 
 
 HOW CAN JUDGES RUN OR EVALUATE YOUR PROJECT?

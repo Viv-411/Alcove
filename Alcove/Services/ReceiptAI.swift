@@ -32,21 +32,23 @@ enum ReceiptAI {
         You tidy up item names printed on grocery receipts.
         Receipts shorten words by dropping letters, for example grn means green, bns means beans, \
         chkn means chicken, thgh means thigh, bnls means boneless, org means organic, pnr means paneer, \
-        lg means large, brn means brown.
+        lg means large, brn means brown, strw means strawberry.
+        Store brands are often initials: ks means Kirkland Signature, gv means Great Value, \
+        mm means Member's Mark.
         Give each line the plain English name a shopper would say, in Title Case. \
         Keep the brand and the pack size. Never invent items.
         """
 
     /// Returns a fix for each line it could tidy, keyed by its position in `names`.
     @available(iOS 26.0, *)
-    static func clean(_ names: [String], householdItems: [String]) async throws -> [Int: Fix] {
-        let raw = try await suggest(names, householdItems: householdItems)
+    static func clean(_ names: [String], householdItems: [String], session: LanguageModelSession? = nil) async throws -> [Int: Fix] {
+        let raw = try await suggest(names, householdItems: householdItems, session: session)
         return apply(raw, originals: names, householdItems: householdItems)
     }
 
     /// The model's unchecked suggestions. Use `clean`, which filters them.
     @available(iOS 26.0, *)
-    static func suggest(_ names: [String], householdItems: [String]) async throws -> [(line: Int, name: String, sameAs: String)] {
+    static func suggest(_ names: [String], householdItems: [String], session: LanguageModelSession? = nil) async throws -> [(line: Int, name: String, sameAs: String)] {
         guard !names.isEmpty else { return [] }
         // Quoted and lowercased: bare receipt codes can make the model decide the
         // text isn't English and refuse the whole request.
@@ -64,7 +66,7 @@ enum ReceiptAI {
 
             Give one entry for every line.
             """
-        let session = LanguageModelSession(instructions: instructions)
+        let session = session ?? LanguageModelSession(instructions: instructions)
         let response = try await session.respond(
             to: prompt,
             generating: ReceiptNameFixes.self,
@@ -89,7 +91,7 @@ enum ReceiptAI {
 
             let wanted = entry.sameAs.trimmingCharacters(in: .whitespacesAndNewlines)
             let same = wanted.isEmpty ? nil : householdItems.first {
-                $0.caseInsensitiveCompare(wanted) == .orderedSame && sharesAWord(original, $0)
+                $0.caseInsensitiveCompare(wanted) == .orderedSame && ProductMatcher.matchScore(receipt: original, name: $0) != nil
             }
             if same == nil {
                 guard isFaithful(name, to: original), compact(name) != compact(original) else { continue }
@@ -102,9 +104,16 @@ enum ReceiptAI {
     /// Every word on the receipt line is an abbreviation of a word in `expanded`,
     /// and `expanded` adds nothing but unit words ("Extra Virgin" from nowhere fails).
     static func isFaithful(_ expanded: String, to original: String) -> Bool {
-        let words = letterWords(expanded)
-        let codes = letterWords(original)
+        var words = letterWords(expanded)
+        var codes = letterWords(original)
         guard !codes.isEmpty else { return false }
+        // Store-brand initials ("ks" → "Kirkland Signature") count only when spelled out exactly.
+        for (code, brand) in storeBrands where codes.contains(code) {
+            let brandWords = letterWords(brand)
+            guard let start = words.indices.first(where: { words[$0...].starts(with: brandWords) }) else { continue }
+            words.removeSubrange(start..<start + brandWords.count)
+            codes.removeAll { $0 == code }
+        }
         let everyCodeUsed = codes.allSatisfy { code in words.contains { abbreviates(code, $0) } }
         let nothingInvented = words.allSatisfy { word in
             unitWords.contains(word) || codes.contains { abbreviates($0, word) }
@@ -112,16 +121,15 @@ enum ReceiptAI {
         return everyCodeUsed && nothingInvented
     }
 
+    /// Store brands printed as initials on US receipts.
+    static let storeBrands: [String: String] = [
+        "ks": "Kirkland Signature", "gv": "Great Value", "mm": "Members Mark",
+    ]
+
     private static let unitWords: Set<String> = [
         "lb", "lbs", "pound", "pounds", "oz", "ounce", "ounces", "g", "gram", "grams", "kg", "l", "liter",
         "liters", "litre", "litres", "ml", "ct", "count", "pack", "pk", "dozen", "each", "ea", "bunch", "and", "of",
     ]
-
-    /// At least one real word on the receipt line abbreviates a word in the item's name.
-    static func sharesAWord(_ original: String, _ item: String) -> Bool {
-        let words = letterWords(item)
-        return letterWords(original).contains { code in code.count >= 3 && words.contains { abbreviates(code, $0) } }
-    }
 
     /// Letters and digits only, so "12pk" and "12 PK" compare equal.
     private static func compact(_ text: String) -> String {

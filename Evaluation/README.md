@@ -24,10 +24,13 @@ Meal ideas vary from run to run, so each scenario is run several times and the c
 
 | Finding | Change | Before → after |
 |---|---|---|
-| The raw model renamed 4 of 30 receipt lines wrongly ("PNT BTR CRMY" → "Plain Butter Cream") | Faithfulness check in `ReceiptAI.apply` | Wrong names shown: 13% → 0% |
+| The raw model renamed 3–4 of 30 receipt lines wrongly, depending on the prompt version ("PNT BTR CRMY" → "Plain Butter Cream", later "Plain Cream Cheese") | Faithfulness check in `ReceiptAI.apply` | Wrong names shown: 10–13% → 0% |
 | On the real receipt photo, "Parle G 800g" became "Parle Granola": a lone letter counted as an abbreviation of any word | A one-letter code now only matches itself | Fixed; unit test added |
 | Some tidied names came back in capitals, unchanged ("MAGGI NOODLES 12 PK") | All-caps names are re-cased; names that only change case or spacing are ignored | Fixed; unit test added |
 | The model cooked with snacks ("Paneer Bhurji" with Aloo Bhujia, a curry with Parle-G). An instruction saying "snacks aren't ingredients" didn't help (25 of 60 dishes). | Obvious snacks are left out of the prompt (`RecipeGeneratorPrompt.isSnack`) | 25 of 60 dishes → 0 of 60 |
 | In the 81-item pantry, the expiring cauliflower was used in only 2 of 5 runs | Expiring food is named again in the request | 2/5 → 5/5 |
 | A vegetarian request still produced meat dishes in some runs (1 of 15, 2 of 15 in a later run) | Dishes with meat are dropped when vegetarian is on | Meat shown: 0 |
 | "Under 20 minutes" still produced 2–3 slower dishes out of 15 | Dishes over 20 minutes are dropped when quick is on | Slower dishes shown: 0 |
+| A real Costco receipt (found while recording the demo): "AMOUNT" and "INSTANT SAVING" became items; "ASST BISCUIT" and "INSTANT SAVING" matched household items because they shared one word; the model matched "KS XL PEANUT" to peanut butter; a slightly tilted photo put prices on the wrong rows and items went missing | Payment lines skipped; a match needs the item's whole name (or the whole line) to fit; rows are straightened by the text's angle and rows holding two items are split; store-brand initials ("KS") allowed only when spelled out exactly | All found items correct on that receipt; unit tests added for each case |
+
+To debug one receipt photo step by step (text rows, items, matches, model output): `Evaluation/AIEval/run.sh debug /absolute/path/to/photo.png`. It uses the app's sample household.

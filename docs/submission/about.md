@@ -40,7 +40,7 @@ There were practical surprises too. The iPhone Simulator can't run Apple's model
 
 - A complete, polished app that covers scanning, storage spaces, search, receipts, alerts and shopping plans, with a guided intro tour and home setup.
 - AI that runs fully on the phone: no server, no API key, no per-use cost.
-- AI quality that I measured rather than guessed. On my receipt test set, the app shows no wrong names, where trusting the model directly got about 1 in 8 wrong. In testing, meal ideas consistently used the food that was about to expire and never treated expired food as something you have.
+- AI quality that I measured rather than guessed. On my receipt test set, the app shows no wrong names, where trusting the model directly got about 1 in 10 wrong. In testing, meal ideas consistently used the food that was about to expire and never treated expired food as something you have.
 
 ## What I learned
 

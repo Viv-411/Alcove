@@ -43,6 +43,13 @@ let receiptCases: [ReceiptCase] = [
 /// The household items the receipt test pretends are already tracked.
 let receiptHousehold = ["Paneer", "Toor Dal", "Aloo Bhujia", "Basmati Rice", "Greek Yogurt"]
 
+/// The item names in the app's sample home (`SampleData.populate`).
+let sampleHousehold = [
+    "Whole Wheat Atta", "Toor Dal", "Sona Masoori Rice", "Basmati Rice", "Parle-G Biscuits", "Aloo Bhujia",
+    "Moong Dal", "Frozen Parathas", "Green Peas", "Paneer", "Greek Yogurt", "Ghee", "Chana Masala",
+    "Peanut Butter", "Olive Oil", "Instant Noodles",
+]
+
 // MARK: - Pantries for meal ideas
 
 func item(_ name: String, _ quantity: Int = 1, days: Int? = nil, _ location: String = "Pantry") -> PantryItem {

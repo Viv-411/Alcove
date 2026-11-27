@@ -38,7 +38,7 @@ func outcome(_ name: String?, _ c: ReceiptCase) -> Outcome {
 
 func evaluateReceipts() async throws {
     print("## Receipt names (`ReceiptAI`)\n")
-    print("\(receiptCases.count) hand-labelled receipt lines. A name counts as correct when it contains every labelled word (for example *GRN BNS 2LB* must contain *green* and *bean*). The **raw model** column is the model's own answer; the **app** column is what Alcove shows after its faithfulness check.\n")
+    print("\(receiptCases.count) hand-labelled receipt lines. A name counts as correct when it contains every labelled word (for example *GRN BNS 2LB* must contain *green* and *bean*); a match to one of the household's items counts as correct when it's the right item. The **raw model** column is the model's own answer; the **app** column is what Alcove shows after its faithfulness check.\n")
     let lines = receiptCases.map(\.line)
     let start = Date()
     let raw = try await ReceiptAI.suggest(lines, householdItems: receiptHousehold)
@@ -53,7 +53,9 @@ func evaluateReceipts() async throws {
     for (i, c) in receiptCases.enumerated() {
         let r = outcome(rawByLine[i], c)
         let shown = checked[i]?.name
-        let a = outcome(shown, c)
+        // A match to one of the household's items is right when it's the right item:
+        // "GRK YGRT PLN" shown as your "Greek Yogurt" is correct even without "plain".
+        let a: Outcome = checked[i]?.sameAs.map { words($0).isSubset(of: Set(c.mustContain)) ? .correct : .wrong } ?? outcome(shown, c)
         rawCount[r, default: 0] += 1
         appCount[a, default: 0] += 1
         print("| `\(c.line)` | \(cell(rawByLine[i] ?? "–")) | \(r == .correct ? "✅" : r == .wrong ? "❌" : "–") | \(cell(shown ?? c.line)) | \(a.rawValue) |")
@@ -96,6 +98,28 @@ func evaluatePipeline() async throws {
         print("| \(cell(item.name)) | \(item.quantity) | \(cell(shown)) |")
     }
     print("")
+}
+
+/// Prints every step for one receipt photo: the text rows, the items kept, and what Alcove shows.
+func debugReceipt(household: [String]) async throws {
+    guard let fixturePath, let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: fixturePath) as CFURL, nil),
+          let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+        print("Photo not found."); return
+    }
+    let ocr = await ReceiptTextRecognizer.recognizeLines(in: ReceiptImages(images: [image]))
+    print("## Text rows\n")
+    for row in ocr { print("- `\(row)` → \(ReceiptParser.parse(line: row).map { "item: \($0.name)" } ?? "skipped")") }
+    let items = ReceiptParser.parse(lines: ocr)
+    let products = household.map { name in let p = Product(); p.name = name; return p }
+    print("\n## Items\n")
+    for item in items {
+        print("- \(item.name) ×\(item.quantity) — matched: \(ProductMatcher.bestMatch(for: item.name, in: products)?.name ?? "none")")
+    }
+    let start = Date()
+    let raw = try await ReceiptAI.suggest(items.map(\.name), householdItems: household)
+    let fixes = ReceiptAI.apply(raw, originals: items.map(\.name), householdItems: household)
+    print("\n## Model (\(String(format: "%.1f", Date().timeIntervalSince(start))) s)\n")
+    for r in raw { print("- line \(r.line): \(r.name) | sameAs: \(r.sameAs) → \(fixes[r.line - 1].map { "\($0.name)\($0.sameAs == nil ? "" : " (match)")" } ?? "rejected")") }
 }
 
 // MARK: - Meal ideas
@@ -274,6 +298,7 @@ do {
     if mode == "all" || mode == "pipeline" { try await evaluatePipeline() }
     if mode == "all" || mode == "recipes" { await evaluateRecipes() }
     if mode == "all" || mode == "compare" { await evaluateOriginalDesign() }
+    if mode == "debug" { try await debugReceipt(household: sampleHousehold) }
 } catch {
     print("Evaluation stopped: \(error)")
 }
