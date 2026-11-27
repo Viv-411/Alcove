@@ -2,7 +2,7 @@
 
 A running count of the packaged food in your home: scan things in when you put them away, scan them out when you finish them, and check from anywhere whether you already have something.
 
-iOS app: SwiftUI + SwiftData, iOS 18+, no third-party dependencies.
+iOS app: SwiftUI + SwiftData, iOS 18+. One package dependency (Google Sign-In), fetched by Xcode automatically.
 
 ## Running it
 
